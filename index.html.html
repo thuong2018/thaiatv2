@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Khầy Vũ Thương - Radar Rọi Tương Lai</title>
+    
+    <link rel="stylesheet" href="https://pyscript.net/releases/2024.1.1/core.css" />
+    <script type="module" src="https://pyscript.net/releases/2024.1.1/core.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700;900&family=Cinzel:wght@400;600;700&family=IM+Fell+English:ital@0;1&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --gold: #d4a843;
+            --gold-light: #f0c96a;
+            --gold-dim: #8a6820;
+            --deep-navy: #060b18;
+            --navy: #0a1428;
+            --panel: rgba(6, 11, 24, 0.82);
+            --border: rgba(212, 168, 67, 0.35);
+            --border-bright: rgba(212, 168, 67, 0.7);
+            --text: #e8d8b0;
+            --text-dim: #9a8860;
+            --cyan: #38bdf8;
+            --indigo: #818cf8;
+            --green: #86efac;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Cinzel', serif;
+            min-height: 100vh;
+            background-color: var(--deep-navy);
+            color: var(--text);
+            overflow-x: hidden;
+        }
+
+        /* ── COSMIC BACKGROUND ── */
+        .bg-layer {
+            position: fixed;
+            top: 0; right: 0; bottom: 0; left: 0;
+            z-index: 0;
+            background: radial-gradient(ellipse at 20% 50%, rgba(56,100,180,0.12) 0%, transparent 60%),
+                        radial-gradient(ellipse at 80% 20%, rgba(129,60,180,0.1) 0%, transparent 50%),
+                        radial-gradient(ellipse at 50% 90%, rgba(212,168,67,0.06) 0%, transparent 50%),
+                        var(--deep-navy);
+        }
+
+        .bg-stars {
+            position: fixed;
+            top: 0; right: 0; bottom: 0; left: 0;
+            z-index: 0;
+            background-image:
+                radial-gradient(1px 1px at 15% 25%, rgba(212,168,67,0.6) 0%, transparent 100%),
+                radial-gradient(1px 1px at 72% 14%, rgba(255,255,255,0.5) 0%, transparent 100%),
+                radial-gradient(1.5px 1.5px at 38% 68%, rgba(212,168,67,0.4) 0%, transparent 100%),
+                radial-gradient(1px 1px at 88% 55%, rgba(255,255,255,0.4) 0%, transparent 100%),
+                radial-gradient(1px 1px at 5% 82%, rgba(212,168,67,0.5) 0%, transparent 100%),
+                radial-gradient(1px 1px at 55% 38%, rgba(255,255,255,0.3) 0%, transparent 100%),
+                radial-gradient(1px 1px at 92% 78%, rgba(212,168,67,0.5) 0%, transparent 100%),
+                radial-gradient(1px 1px at 28% 90%, rgba(255,255,255,0.3) 0%, transparent 100%),
+                radial-gradient(1px 1px at 65% 5%, rgba(212,168,67,0.4) 0%, transparent 100%);
+        }
+
+        /* ── DECORATIVE CORNER LINES ── */
+        .corner-decor {
+            position: fixed; z-index: 1;
+            width: 120px; height: 120px;
+            pointer-events: none;
+        }
+        .corner-decor svg { width: 100%; height: 100%; }
+        .corner-tl { top: 15px; left: 15px; }
+        .corner-tr { top: 15px; right: 15px; transform: scaleX(-1); }
+        .corner-bl { bottom: 15px; left: 15px; transform: scaleY(-1); }
+        .corner-br { bottom: 15px; right: 15px; transform: scale(-1); }
+
+        /* ── LAYOUT ── */
+        .page {
+            position: relative; z-index: 2;
+            display: grid;
+            grid-template-columns: 1fr 1.1fr;
+            grid-template-rows: auto;
+            min-height: 100vh;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 30px;
+            gap: 40px;
+            align-items: start;
+        }
+
+        /* ── LEFT PANEL (image + compass) ── */
+        .left-panel {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 24px;
+            position: sticky;
+            top: 40px;
+        }
+
+        .loshu-frame {
+            position: relative;
+            width: 320px;
+            height: 320px;
+        }
+
+        .loshu-ring {
+            position: absolute;
+            top: -18px; right: -18px; bottom: -18px; left: -18px;
+            border-radius: 50%;
+            border: 1px solid var(--border);
+            animation: spin-slow 40s linear infinite;
+        }
+        .loshu-ring::before, .loshu-ring::after {
+            content: '';
+            position: absolute;
+            width: 8px; height: 8px;
+            background: var(--gold);
+            border-radius: 50%;
+            top: 50%; left: -4px;
+            transform: translateY(-50%);
+            box-shadow: 0 0 10px var(--gold);
+        }
+        .loshu-ring::after { left: auto; right: -4px; }
+
+        .loshu-ring-2 {
+            position: absolute;
+            top: -36px; right: -36px; bottom: -36px; left: -36px;
+            border-radius: 50%;
+            border: 1px dashed rgba(212,168,67,0.2);
+            animation: spin-slow 60s linear infinite reverse;
+        }
+
+        @keyframes spin-slow { to { transform: rotate(360deg); } }
+
+        .loshu-img {
+            width: 320px;
+            height: 320px;
+            border-radius: 12px;
+            object-fit: cover;
+            border: 2px solid var(--border-bright);
+            box-shadow:
+                0 0 40px rgba(212,168,67,0.2),
+                0 0 80px rgba(212,168,67,0.1),
+                inset 0 0 30px rgba(0,0,0,0.5);
+            animation: pulse-glow 4s ease-in-out infinite;
+        }
+
+        @keyframes pulse-glow {
+            0%, 100% { box-shadow: 0 0 40px rgba(212,168,67,0.2), 0 0 80px rgba(212,168,67,0.1); }
+            50% { box-shadow: 0 0 60px rgba(212,168,67,0.35), 0 0 120px rgba(212,168,67,0.15); }
+        }
+
+        .title-block {
+            text-align: center;
+        }
+
+        .title-main {
+            font-family: 'Cinzel Decorative', serif;
+            font-size: 1.5rem;
+            font-weight: 900;
+            color: var(--gold-light);
+            text-shadow: 0 0 30px rgba(212,168,67,0.5), 0 0 60px rgba(212,168,67,0.2);
+            letter-spacing: 3px;
+            line-height: 1.3;
+        }
+
+        .title-divider {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 10px 0;
+        }
+        .title-divider::before, .title-divider::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--gold-dim), transparent);
+        }
+        .title-divider span {
+            color: var(--gold);
+            font-size: 1rem;
+        }
+
+        .title-sub {
+            font-family: 'IM Fell English', serif;
+            font-style: italic;
+            color: var(--text-dim);
+            font-size: 0.85rem;
+            letter-spacing: 1px;
+        }
+
+        /* ── RIGHT PANEL (controls + output) ── */
+        .right-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .control-panel {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 28px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.6), inset 0 1px 0 rgba(212,168,67,0.1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .control-panel::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 30px; right: 30px;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--gold), transparent);
+        }
+
+        .panel-title {
+            font-family: 'Cinzel Decorative', serif;
+            font-size: 0.75rem;
+            letter-spacing: 4px;
+            color: var(--gold-dim);
+            text-transform: uppercase;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .panel-title::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: var(--border);
+        }
+
+        .input-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        label {
+            font-size: 0.7rem;
+            letter-spacing: 2px;
+            color: var(--text-dim);
+            text-transform: uppercase;
+        }
+
+        input[type="date"], input[type="number"] {
+            background: rgba(0,0,0,0.5);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--gold-light);
+            padding: 10px 14px;
+            font-family: 'Cinzel', serif;
+            font-size: 0.9rem;
+            width: 100%;
+            transition: border-color 0.3s, box-shadow 0.3s;
+        }
+        input:focus {
+            outline: none;
+            border-color: var(--gold);
+            box-shadow: 0 0 15px rgba(212,168,67,0.2);
+        }
+        input::-webkit-calendar-picker-indicator { filter: invert(0.7) sepia(1) saturate(2) hue-rotate(5deg); }
+
+        .run-btn {
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(135deg, rgba(212,168,67,0.15), rgba(212,168,67,0.05));
+            border: 1px solid var(--border-bright);
+            border-radius: 10px;
+            color: var(--gold-light);
+            font-family: 'Cinzel Decorative', serif;
+            font-size: 0.85rem;
+            font-weight: 700;
+            letter-spacing: 3px;
+            cursor: pointer;
+            transition: all 0.4s;
+            position: relative;
+            overflow: hidden;
+            text-shadow: 0 0 20px rgba(212,168,67,0.5);
+        }
+        .run-btn::before {
+            content: '';
+            position: absolute;
+            top: 0; right: 0; bottom: 0; left: 0;
+            background: linear-gradient(135deg, rgba(212,168,67,0.3), transparent);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .run-btn:hover { box-shadow: 0 0 30px rgba(212,168,67,0.3), 0 0 60px rgba(212,168,67,0.1); transform: translateY(-1px); }
+        .run-btn:hover::before { opacity: 1; }
+        .run-btn:active { transform: translateY(0); }
+
+        /* ── OUTPUT ── */
+        .output-panel {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+        }
+
+        .output-header {
+            background: rgba(212,168,67,0.07);
+            border-bottom: 1px solid var(--border);
+            padding: 12px 20px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.65rem;
+            letter-spacing: 3px;
+            color: var(--gold-dim);
+            text-transform: uppercase;
+        }
+        .output-dot {
+            width: 7px; height: 7px;
+            border-radius: 50%;
+            background: var(--gold);
+            box-shadow: 0 0 8px var(--gold);
+            animation: blink 2s ease-in-out infinite;
+        }
+        @keyframes blink { 0%,100% { opacity:1; } 50% { opacity:0.3; } }
+
+        #output {
+            padding: 20px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.82rem;
+            line-height: 1.7;
+            color: #c8d8b0;
+            max-height: 520px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            scrollbar-width: thin;
+            scrollbar-color: var(--gold-dim) transparent;
+        }
+        #output::-webkit-scrollbar { width: 4px; }
+        #output::-webkit-scrollbar-thumb { background: var(--gold-dim); border-radius: 2px; }
+
+        /* color highlights in output */
+        #output { color: #a8c488; }
+
+        .footer {
+            text-align: center;
+            padding: 20px;
+            font-size: 0.65rem;
+            letter-spacing: 3px;
+            color: var(--gold-dim);
+            text-transform: uppercase;
+            grid-column: 1 / -1;
+        }
+
+        /* ── RESPONSIVE ── */
+        @media (max-width: 768px) {
+            .page {
+                grid-template-columns: 1fr;
+                padding: 20px 15px;
+                gap: 24px;
+            }
+            .left-panel { position: static; }
+            .loshu-frame, .loshu-img { width: 260px; height: 260px; }
+            .title-main { font-size: 1.2rem; }
+            .input-row { grid-template-columns: 1fr; }
+        }
+
+        /* ── ANIMATED SCAN LINE on output ── */
+        .output-panel::after {
+            content: '';
+            display: block;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--gold), transparent);
+            opacity: 0;
+            animation: scan 3s ease-in-out infinite;
+        }
+        @keyframes scan { 0%,100% { opacity:0; } 50% { opacity:0.5; } }
+
+        /* Trigram symbols decoration */
+        .trigrams {
+            display: flex;
+            gap: 16px;
+            justify-content: center;
+            font-size: 1.4rem;
+            color: var(--gold-dim);
+            letter-spacing: 6px;
+            margin-top: 4px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="bg-layer"></div>
+<div class="bg-stars"></div>
+
+<!-- Corner decorations -->
+<div class="corner-decor corner-tl">
+<svg viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M10 10 L50 10 M10 10 L10 50" stroke="rgba(212,168,67,0.5)" stroke-width="1.5"/>
+  <path d="M18 10 L18 18 L10 18" stroke="rgba(212,168,67,0.25)" stroke-width="1"/>
+  <circle cx="10" cy="10" r="3" fill="rgba(212,168,67,0.6)"/>
+</svg>
+</div>
+<div class="corner-decor corner-tr">
+<svg viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M10 10 L50 10 M10 10 L10 50" stroke="rgba(212,168,67,0.5)" stroke-width="1.5"/>
+  <circle cx="10" cy="10" r="3" fill="rgba(212,168,67,0.6)"/>
+</svg>
+</div>
+<div class="corner-decor corner-bl">
+<svg viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M10 10 L50 10 M10 10 L10 50" stroke="rgba(212,168,67,0.5)" stroke-width="1.5"/>
+  <circle cx="10" cy="10" r="3" fill="rgba(212,168,67,0.6)"/>
+</svg>
+</div>
+<div class="corner-decor corner-br">
+<svg viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M10 10 L50 10 M10 10 L10 50" stroke="rgba(212,168,67,0.5)" stroke-width="1.5"/>
+  <circle cx="10" cy="10" r="3" fill="rgba(212,168,67,0.6)"/>
+</svg>
+</div>
+
+<div class="page">
+
+    <!-- LEFT: Image + Title -->
+    <div class="left-panel">
+        <div class="loshу-frame">
+            <div class="loshu-ring-2"></div>
+            <div class="loshu-ring"></div>
+            <img class="loshu-img" src="image_0.png" alt="Lạc Thư Thái Ất">
+        </div>
+
+        <div class="title-block">
+            <div class="trigrams">☰ ☵ ☶ ☱ ☷</div>
+            <div class="title-divider"><span>✦</span></div>
+            <h1 class="title-main">Khầy Vũ Thương</h1>
+            <div class="title-divider"><span>✦</span></div>
+            <p class="title-sub">Hệ Thống Rọi Tương Lai · Thái Ất Cơ Vi Toàn Diện</p>
+            <div class="trigrams" style="margin-top:8px; font-size:1rem; opacity:0.5;">☴ ☲ ☳ ☯</div>
+        </div>
+    </div>
+
+    <!-- RIGHT: Controls + Output -->
+    <div class="right-panel">
+
+        <div class="control-panel">
+            <div class="panel-title">⟡ Thiết lập thời không</div>
+            <div class="input-row">
+                <div class="input-group">
+                    <label>📅 Ngày Soi Chiếu</label>
+                    <input type="date" id="date_input">
+                </div>
+                <div class="input-group">
+                    <label>⏳ Giờ (0–23)</label>
+                    <input type="number" id="hour_input" min="0" max="23" value="12">
+                </div>
+            </div>
+            <button class="run-btn" id="run_button" py-click="main">
+                🔮 KHỞI ĐỘNG RADAR RỌI THIÊN CƠ
+            </button>
+        </div>
+
+        <div class="output-panel">
+            <div class="output-header">
+                <div class="output-dot"></div>
+                Thiên Cơ Biến · Kết Quả Soi Chiếu
+            </div>
+            <div id="output">Kết quả sẽ hiển thị tại đây...
+Bấm nút bên trên để Khầy Vũ Thương soi thiên cơ biến.</div>
+        </div>
+
+    </div>
+
+    <div class="footer">✦ Duy trì và rọi chiếu bởi Khầy Vũ Thương © 2026 ✦</div>
+
+</div>
+
+<script type="py">
+import datetime
+from pyscript import display, document
+
+def tinh_4_cuc_thai_at(nam, thang, ngay, gio):
+    tich_so_nam = 10155509 + (nam - 1592)
+    tue_cuc = (tich_so_nam % 3600) % 72 or 72
+    
+    tich_so_thang = (tich_so_nam - 1) * 12 + (thang + 2)
+    nguyet_cuc = (tich_so_thang % 3600) % 72 or 72
+    
+    a = (14 - thang) // 12
+    y = nam + 4800 - a
+    m = thang + 12 * a - 3
+    jdn = ngay + (153 * m + 2) // 5 + 365 * y + y // 4 - y // 100 + y // 400 - 32045
+    nhat_cuc = (jdn + 50) % 72 or 72
+    
+    ngay_target = datetime.date(nam, thang, ngay)
+    ngay_giap_ty = datetime.date(2024, 3, 1)
+    N = ((ngay_target - ngay_giap_ty).days % 60 % 30) + 1
+    K = ((gio + 1) % 24) // 2 + 1
+    thoi_cuc = ((N - 1) * 12 + K) % 72 or 72
+    loai_don_thoi = "am" if 172 <= ngay_target.timetuple().tm_yday <= 355 else "duong"
+    
+    return {
+        "🌍 TUẾ KẾ (VẬN NĂM)": (tue_cuc, "duong"),
+        "🌙 NGUYỆT KẾ (VẬN THÁNG)": (nguyet_cuc, "duong"),
+        "☀️ NHẬT KẾ (VẬN NGÀY)": (nhat_cuc, "duong"),
+        "⏳ THỜI KẾ (VẬN GIỜ)": (thoi_cuc, loai_don_thoi)
+    }
+
+def lap_sa_ban_day_du(ten_cuc, cuc_so, loai_don):
+    cung_hanh = {
+        1: ("Càn", "Kim"), 6: ("Đoài", "Kim"),
+        4: ("Chấn", "Mộc"), 9: ("Tốn", "Mộc"),
+        8: ("Khảm", "Thủy"), 2: ("Ly", "Hỏa"),
+        3: ("Cấn", "Thổ"), 7: ("Khôn", "Thổ"), 5: ("Trung Cung", "Thổ")
+    }
+
+    def get_cung_info(num):
+        info = cung_hanh.get(num, ("Không xác định", "Vô hành"))
+        return f"Cung {num} - {info[0]} ({info[1]})"
+
+    duong_palaces = [1, 2, 3, 4, 6, 7, 8, 9]
+    round_cuc = (cuc_so - 1) % 24
+    idx_TA = round_cuc // 3
+    thai_at = duong_palaces[idx_TA]
+    
+    quy_dao_vx_duong = {1:"Thân", 2:"Dậu", 3:"Tuất", 4:"Càn", 5:"Càn", 6:"Hợi", 7:"Tý", 8:"Sửu", 9:"Cấn", 10:"Dần", 11:"Mão", 12:"Thìn", 13:"Tốn", 14:"Tỵ", 15:"Ngọ", 16:"Mùi", 17:"Khôn", 0:"Khôn"}
+    quy_dao_vx_am = {1:"Dần", 2:"Mão", 3:"Thìn", 4:"Tốn", 5:"Tốn", 6:"Tỵ", 7:"Ngọ", 8:"Mùi", 9:"Khôn", 10:"Thân", 11:"Dậu", 12:"Tuất", 13:"Càn", 14:"Hợi", 15:"Tý", 16:"Sửu", 17:"Cấn", 0:"Cấn"}
+    quy_dao_kt_duong = {1:"Dần", 2:"Sửu", 3:"Tý", 4:"Hợi", 5:"Tuất", 6:"Dậu", 7:"Thân", 8:"Mùi", 9:"Ngọ", 10:"Tỵ", 11:"Thìn", 0:"Mão"}
+    quy_dao_kt_am = {1:"Thân", 2:"Mùi", 3:"Ngọ", 4:"Tỵ", 5:"Thìn", 6:"Mão", 7:"Dần", 8:"Sửu", 9:"Tý", 10:"Hợi", 11:"Tuất", 0:"Dậu"}
+    
+    van_xuong = quy_dao_vx_duong[cuc_so % 18] if loai_don == "duong" else quy_dao_vx_am[cuc_so % 18]
+    ke_than = quy_dao_kt_duong[cuc_so % 12] if loai_don == "duong" else quy_dao_kt_am[cuc_so % 12]
+    
+    thap_luc_than = ["Càn", "Hợi", "Tý", "Sửu", "Cấn", "Dần", "Mão", "Thìn", "Tốn", "Tỵ", "Ngọ", "Mùi", "Khôn", "Thân", "Dậu", "Tuất"]
+    thuy_kich = thap_luc_than[(4 + (thap_luc_than.index(van_xuong) - thap_luc_than.index(ke_than))) % 16]
+    
+    than_info = {
+        "Tuất": (1, "1st"), "Càn": (1, "2nd"), "Hợi": (1, "3rd"), "Sửu": (3, "1st"), "Cấn": (3, "2nd"), "Dần": (3, "3rd"),
+        "Thìn": (9, "1st"), "Tốn": (9, "2nd"), "Tỵ": (9, "3rd"), "Mùi": (7, "1st"), "Khôn": (7, "2nd"), "Thân": (7, "3rd"),
+        "Tý": (8, "2nd"), "Mão": (4, "2nd"), "Ngọ": (2, "2nd"), "Dậu": (6, "2nd")
+    }
+    
+    lac_thu = [1, 8, 3, 4, 9, 2, 7, 6]
+    map_cung_to_idx = {1:0, 8:1, 3:2, 4:3, 9:4, 2:5, 7:6, 6:7}
+
+    def dem_quan(start_than, ta_palace):
+        cung_start, loai_than_giap = than_info[start_than]
+        if cung_start == ta_palace: return cung_start
+        idx = map_cung_to_idx[cung_start]
+        ta_idx = map_cung_to_idx[ta_palace]
+        total = 0
+        if loai_than_giap in ["1st", "3rd"]:
+            total += 1 
+            if loai_than_giap == "1st": total += lac_thu[idx] 
+        else: total += lac_thu[idx] 
+        idx = (idx + 1) % 8
+        while idx != ta_idx:
+            total += lac_thu[idx]
+            idx = (idx + 1) % 8
+        return total
+
+    toan_chu = dem_quan(van_xuong, thai_at)
+    toan_khach = dem_quan(thuy_kich, thai_at)
+
+    def tinh_tuong(toan):
+        dai = toan % 10
+        if dai == 0: dai = 1
+        tham = (dai * 3) % 10
+        if tham == 0: tham = 1
+        return dai, tham
+
+    chu_dai, chu_tham = tinh_tuong(toan_chu)
+    khach_dai, khach_tham = tinh_tuong(toan_khach)
+
+    def phan_xu_an(tuong, ta, tk_cung):
+        if tuong == 5: return "☠️ ĐỖ (Chết đứng)"
+        if tuong == ta: return "⛓️ TÙ (Kìm kẹp)"
+        if tuong == tk_cung: return "🗡️ YỂM (Sát cục)"
+        cung_doi = {1:9, 9:1, 2:8, 8:2, 3:7, 7:3, 4:6, 6:4}
+        if tuong == cung_doi.get(ta, -1): return "↔️ CÁCH (Ly tán)"
+        ta_idx = map_cung_to_idx.get(ta, -1)
+        if ta_idx != -1 and tuong in [lac_thu[(ta_idx - 1) % 8], lac_thu[(ta_idx + 1) % 8]]:
+            return "⛓️ BÁCH (Bị dồn ép)"
+        return "🔥 PHÁT (Thắng thế)"
+
+    cung_TK = than_info[thuy_kich][0]
+    
+    res = f"\n📜 [{ten_cuc}]\n"
+    res += f" ├─ Cục: {cuc_so} | Hệ: {'DƯƠNG ĐỘN' if loai_don == 'duong' else 'ÂM ĐỘN'}\n"
+    res += f" ├─ TỌA ĐỘ TINH TÚ:\n"
+    res += f" │  ├─ ⭐ Thái Ất (Mộc): {get_cung_info(thai_at)}\n"
+    res += f" │  ├─ 👁️ Văn Xương (Thổ): {van_xuong} (Thuộc {get_cung_info(than_info[van_xuong][0])})\n"
+    res += f" │  └─ 🌊 Thủy Kích (Hỏa): {thuy_kich} (Thuộc {get_cung_info(than_info[thuy_kich][0])})\n"
+    res += f" ├─ THÔNG TIN BỔ TRỢ: Trực Phù (Hỏa) | Đại Du Thái Ất (Kim)\n"
+    res += f" ├─ TOÁN SỐ: 🔴 Chủ ({toan_chu}) | 🟢 Khách ({toan_khach})\n"
+    res += f" ├─ 🔴 QUÂN LỰC BÊN CHỦ (Bán):\n"
+    res += f" │  ├─ Đại Tướng (Thủy) - {get_cung_info(chu_dai)}: {phan_xu_an(chu_dai, thai_at, cung_TK)}\n"
+    res += f" │  └─ Tham Tướng (Mộc) - {get_cung_info(chu_tham)}: {phan_xu_an(chu_tham, thai_at, cung_TK)}\n"
+    res += f" └─ 🟢 QUÂN LỰC BÊN KHÁCH (Mua):\n"
+    res += f"    ├─ Đại Tướng (Kim) - {get_cung_info(khach_dai)}: {phan_xu_an(khach_dai, thai_at, cung_TK)}\n"
+    res += f"    └─ Tham Tướng (Thủy) - {get_cung_info(khach_tham)}: {phan_xu_an(khach_tham, thai_at, cung_TK)}\n"
+    res += "-" * 60 + "\n"
+    return res
+
+def main(event):
+    date_str = document.querySelector("#date_input").value
+    if not date_str:
+        document.querySelector("#output").innerText = "⚠️ Khầy Vũ Thương cảnh báo: Chưa chọn ngày soi chiếu kìa!"
+        return
+        
+    date_obj = datetime.datetime.strptime(date_str, "%Y-%m-%d")
+    gio = int(document.querySelector("#hour_input").value)
+    
+    cac_cuc = tinh_4_cuc_thai_at(date_obj.year, date_obj.month, date_obj.day, gio)
+    
+    final_text = f"🌀 RADAR KHẦY VŨ THƯƠNG ĐÃ QUÉT XONG CƠ VI 🌀\n"
+    final_text += f"Thời điểm SOI CHIẾU: Giờ {gio} | Ngày {date_obj.strftime('%d/%m/%Y')}\n"
+    final_text += "="*38 + "\n"
+    
+    for ten, (so, don) in cac_cuc.items():
+        final_text += lap_sa_ban_day_du(ten, so, don) + "\n"
+        
+    document.querySelector("#output").innerText = final_text
+
+today = datetime.date.today().strftime("%Y-%m-%d")
+document.querySelector("#date_input").value = today
+</script>
+
+</body>
+</html>

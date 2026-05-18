@@ -511,7 +511,8 @@ function getThaiAtFeatures(dateStr){
 //  SIGNAL SCANNER (port từ signal_scanner.py)
 // ══════════════════════════════════════════════════════════════════
 
-const BONG_BONG = new Set(["THUAN_DUONG","CO_DUONG","VO_DIA","VO_THIEN"]);
+// Bổ sung "TRUNG_DUONG" vào bộ lọc Bong Bóng
+const BONG_BONG = new Set(["THUAN_DUONG","TRUNG_DUONG","CO_DUONG","VO_DIA","VO_THIEN"]);
 
 function scanBTC(data){
   const chu_tham_an   = data.chu_tham_tuong.an_phat;

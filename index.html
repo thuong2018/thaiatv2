@@ -119,14 +119,14 @@ h1 {
   padding: 1.5rem;
   margin-bottom: 2rem;
   display: grid;
-  grid-template-columns: 1fr 1fr auto;
+  grid-template-columns: 1fr 1fr 1fr auto;
   gap: 1rem;
   align-items: end;
 }
 
-@media(max-width:600px){
-  .controls{grid-template-columns:1fr 1fr;grid-template-rows:auto auto;}
-  .controls .btn-run{grid-column:1/-1;}
+@media(max-width:700px){
+  .controls{grid-template-columns:1fr 1fr;}
+  .controls .btn-run,.controls .field:nth-child(3){grid-column:1/-1;}
 }
 
 .field label {
@@ -384,8 +384,12 @@ footer{
 <!-- CONTROLS -->
 <div class="controls">
   <div class="field">
-    <label>📅 Ngày bắt đầu</label>
+    <label>📅 Từ ngày</label>
     <input type="date" id="startDate"/>
+  </div>
+  <div class="field">
+    <label>📅 Đến ngày</label>
+    <input type="date" id="endDate"/>
   </div>
   <div class="field">
     <label>🎯 Tài sản</label>
@@ -397,8 +401,12 @@ footer{
   </div>
   <button class="btn-run" onclick="runScan()">QUÉT KÈO ▶</button>
 
-  <div class="week-info" id="weekChips">
-    <!-- JS fills chips -->
+  <div class="week-info" id="rangeChips">
+    <span class="week-chip" data-range="today">Hôm nay</span>
+    <span class="week-chip active" data-range="week">7 ngày tới</span>
+    <span class="week-chip" data-range="2week">14 ngày tới</span>
+    <span class="week-chip" data-range="month">30 ngày tới</span>
+    <span class="week-chip" data-range="custom">Tùy chỉnh</span>
   </div>
 </div>
 
@@ -406,144 +414,311 @@ footer{
 <div id="loading"><div class="spinner"></div>Đang giải sa bàn...</div>
 <div id="empty">
   <div class="empty-icon">☰</div>
-  Chọn ngày và nhấn QUÉT KÈO để bắt đầu
+  Chọn khoảng thời gian và nhấn QUÉT KÈO để bắt đầu
 </div>
 <div id="results"></div>
+
+<!-- REPORT BOX -->
+<div id="reportWrap" style="display:none;margin-top:2rem;">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem;">
+    <span style="font-family:'Share Tech Mono',monospace;font-size:.75rem;color:var(--gold);letter-spacing:.15em;text-transform:uppercase;">📋 Báo Cáo Tín Hiệu</span>
+    <button onclick="copyReport()" id="copyBtn" style="font-family:'Share Tech Mono',monospace;font-size:.72rem;background:rgba(200,168,75,0.12);border:1px solid var(--border);color:var(--gold);padding:.3rem .9rem;border-radius:5px;cursor:pointer;transition:all .2s;">⧉ COPY</button>
+  </div>
+  <textarea id="reportBox" readonly
+    style="width:100%;min-height:220px;background:rgba(6,6,14,0.9);border:1px solid var(--border);border-radius:8px;color:#b0c0a0;font-family:'Share Tech Mono',monospace;font-size:.72rem;line-height:1.7;padding:1rem;resize:vertical;outline:none;"></textarea>
+</div>
+
+<!-- Nút Xuất Báo Cáo — chỉ hiện sau khi đã quét -->
+<div id="exportBtnWrap" style="display:none;text-align:center;margin-top:1.5rem;">
+  <button onclick="exportReport()" style="font-family:'Cinzel Decorative',serif;font-size:.78rem;font-weight:700;background:linear-gradient(135deg,rgba(200,168,75,0.15) 0%,rgba(200,168,75,0.08) 100%);border:1px solid var(--gold);color:var(--gold);padding:.65rem 2rem;border-radius:8px;cursor:pointer;letter-spacing:.08em;transition:all .2s;box-shadow:0 0 18px rgba(200,168,75,0.1);" onmouseover="this.style.background='rgba(200,168,75,0.22)'" onmouseout="this.style.background='linear-gradient(135deg,rgba(200,168,75,0.15) 0%,rgba(200,168,75,0.08) 100%)'">📋 XUẤT BÁO CÁO</button>
+</div>
 
 <footer>THÁI ẤT QUANT &nbsp;·&nbsp; DỰA TRÊN THUẬT TOÁN NHẬT CỤC &nbsp;·&nbsp; KHÔNG PHẢI TƯ VẤN ĐẦU TƯ</footer>
 </div>
 
 <script>
 /* ══════════════════════════════════════════════════════════════════
-   PORT THUẬT TOÁN THÁI ẤT NHẬT CỤC → JavaScript
-   (Based on thai_at_core.py logic)
+   THAI ẤT CORE — Port 1-to-1 từ thai_at_core.py
    ══════════════════════════════════════════════════════════════════ */
 
-// ── Bảng Can Chi ──────────────────────────────────────────────────
-const CAN  = ["Giáp","Ất","Bính","Đinh","Mậu","Kỷ","Canh","Tân","Nhâm","Quý"];
-const CHI  = ["Tý","Sửu","Dần","Mão","Thìn","Tỵ","Ngọ","Mùi","Thân","Dậu","Tuất","Hợi"];
-
-// ── Các cung Thái Ất (9 cung Lạc Thư) ─────────────────────────────
-const THAI_AT_TUONG = [
-  "Thiên Mục","Địa Mục","Nhân Mục",
-  "Thắng Quang","Thắng Quang","Thái Ất",
-  "Thiên Ất","Địa Ất","Nhân Ất"
-];
-
-// ── Bảng Án Phạt theo cung Tướng ──────────────────────────────────
-// Mô phỏng logic án phạt từ thai_at_core.py
-const AN_PHAT_TABLE = {
-  "Thiên Mục": { 1:["QUAN"],2:[],3:["TÙ"],4:[],5:["QUAN","TÙ"],6:[],7:["QUAN"],8:[],9:["TÙ"] },
-  "Địa Mục":   { 1:[],2:["TÙ"],3:[],4:["QUAN"],5:["TÙ"],6:["QUAN"],7:[],8:["TÙ"],9:[] },
-  "Nhân Mục":  { 1:["TÙ"],2:[],3:["QUAN"],4:[],5:[],6:["TÙ"],7:[],8:["QUAN"],9:[] },
-  "Thắng Quang":{ 1:["QUAN"],2:["TÙ"],3:[],4:["QUAN"],5:["TÙ","QUAN"],6:[],7:["TÙ"],8:[],9:["QUAN"] },
-  "Thái Ất":   { 1:[],2:[],3:[],4:[],5:[],6:[],7:[],8:[],9:[] },
-  "Thiên Ất":  { 1:["TÙ"],2:[],3:["QUAN"],4:["TÙ"],5:["QUAN"],6:[],7:["TÙ"],8:["QUAN"],9:[] },
-  "Địa Ất":    { 1:[],2:["QUAN"],3:["TÙ"],4:[],5:["QUAN"],6:["TÙ"],7:[],8:[],9:["QUAN"] },
-  "Nhân Ất":   { 1:["QUAN"],2:["TÙ"],3:[],4:[],5:["TÙ"],6:["QUAN"],7:[],8:["TÙ"],9:["QUAN"] },
+// ── Bảng dữ liệu cố định ──────────────────────────────────────────
+const THAN_INFO = {
+  "Tuất":[1,"1st"],"Càn":[1,"2nd"],"Hợi":[1,"3rd"],
+  "Sửu": [3,"1st"],"Cấn":[3,"2nd"],"Dần":[3,"3rd"],
+  "Thìn":[9,"1st"],"Tốn":[9,"2nd"],"Tỵ": [9,"3rd"],
+  "Mùi": [7,"1st"],"Khôn":[7,"2nd"],"Thân":[7,"3rd"],
+  "Tý":  [8,"2nd"],
+  "Mão": [4,"2nd"],
+  "Ngọ": [2,"2nd"],
+  "Dậu": [6,"2nd"],
 };
 
-// ── Tính chất Toán ─────────────────────────────────────────────────
-const TINH_CHAT_MAP = {
-  1:"THUAN_DUONG", 2:"CO_DUONG", 3:"VO_DIA",  4:"VO_THIEN",
-  5:"TRUNG_TINH",  6:"CO_AM",    7:"THUAN_AM", 8:"PHAT_AM",
-  9:"VONG_AM"
-};
+const LAC_THU      = [1,8,3,4,9,2,7,6];
+const MAP_CUNG_IDX = {1:0,8:1,3:2,4:3,9:4,2:5,7:6,6:7};
+const VONG_BAT_QUAI= [1,8,3,4,9,2,7,6];
+const DUONG_PALACES = [1,2,3,4,6,7,8,9];
+const DIA_BAN = ["Càn","Hợi","Tý","Sửu","Cấn","Dần","Mão","Thìn",
+                 "Tốn","Tỵ","Ngọ","Mùi","Khôn","Thân","Dậu","Tuất"];
 
-// ── Tính số ngày Julius & Can Chi ─────────────────────────────────
-function dateToJD(y,m,d){
-  const a=Math.floor((14-m)/12);
-  const yr=y+4800-a; const mo=m+12*a-3;
-  return d+Math.floor((153*mo+2)/5)+365*yr+Math.floor(yr/4)
-         -Math.floor(yr/100)+Math.floor(yr/400)-32045;
+// Văn Xương map
+const MAP_VX_DUONG = {1:"Thân",2:"Dậu",3:"Tuất",4:"Càn",5:"Càn",6:"Hợi",
+  7:"Tý",8:"Sửu",9:"Cấn",10:"Dần",11:"Mão",12:"Thìn",
+  13:"Tốn",14:"Tỵ",15:"Ngọ",16:"Mùi",17:"Khôn",0:"Khôn"};
+const MAP_KT_DUONG = {1:"Dần",2:"Sửu",3:"Tý",4:"Hợi",5:"Tuất",6:"Dậu",
+  7:"Thân",8:"Mùi",9:"Ngọ",10:"Tỵ",11:"Thìn",0:"Mão"};
+const MAP_VX_AM = {1:"Dần",2:"Mão",3:"Thìn",4:"Tốn",5:"Tốn",6:"Tỵ",
+  7:"Ngọ",8:"Mùi",9:"Khôn",10:"Thân",11:"Dậu",12:"Tuất",
+  13:"Càn",14:"Hợi",15:"Tý",16:"Sửu",17:"Cấn",0:"Cấn"};
+const MAP_KT_AM = {1:"Thân",2:"Mùi",3:"Ngọ",4:"Tỵ",5:"Thìn",6:"Mão",
+  7:"Dần",8:"Sửu",9:"Tý",10:"Hợi",11:"Tuất",0:"Dậu"};
+
+// Can Chi (cho hiển thị)
+const CAN = ["Giáp","Ất","Bính","Đinh","Mậu","Kỷ","Canh","Tân","Nhâm","Quý"];
+const CHI = ["Tý","Sửu","Dần","Mão","Thìn","Tỵ","Ngọ","Mùi","Thân","Dậu","Tuất","Hợi"];
+
+// ── Hàm tiện ích ──────────────────────────────────────────────────
+function modPos(a,b){ return ((a%b)+b)%b; }
+
+function toJDN(y,m,d){
+  const a=(14-m)>>2>>0 || Math.floor((14-m)/12);
+  // dùng công thức gốc Python
+  const aa=Math.floor((14-m)/12);
+  const yy=y+4800-aa; const mm=m+12*aa-3;
+  return d+Math.floor((153*mm+2)/5)+365*yy
+    +Math.floor(yy/4)-Math.floor(yy/100)+Math.floor(yy/400)-32045;
 }
 
-function getCanChi(dateStr){
-  const [y,m,d]=dateStr.split('-').map(Number);
-  const jd = dateToJD(y,m,d);
-  // Can từ JD: gốc 2440587 (1 Jan 1970) = Canh (index 6 trong CAN)
-  const canIdx = ((jd - 2440587) % 10 + 10) % 10;
-  // Chi từ JD: gốc = Thân (index 8)
-  const chiIdx = ((jd - 2440587) % 12 + 12) % 12;
-  return { can: CAN[canIdx], chi: CHI[chiIdx], canIdx, chiIdx };
+function dayOfYear(y,m,d){
+  const start=new Date(y,0,0);
+  const cur=new Date(y,m-1,d);
+  return Math.round((cur-start)/86400000);
 }
 
-// ── Core: tính Nhật Cục & Tướng ───────────────────────────────────
-function getThaiAtFeatures(dateStr){
-  const [y,m,d]=dateStr.split('-').map(Number);
-  const { can, chi, canIdx, chiIdx } = getCanChi(dateStr);
+// ── Khoảng cách không gian Bát Quái ──────────────────────────────
+function khoangCach(c1,c2){
+  const i1=VONG_BAT_QUAI.indexOf(c1);
+  const i2=VONG_BAT_QUAI.indexOf(c2);
+  if(i1<0||i2<0) return 99;
+  const d=Math.abs(i1-i2);
+  return Math.min(d,8-d);
+}
 
-  // Toán Chủ/Khách dựa trên Can (1-based)
-  const canVal = canIdx + 1; // 1..10
-  // Chu & Khach tạo từ hàm mô phỏng
-  const toan_chu_so   = ((canVal * 3 + chiIdx) % 9) + 1;
-  const toan_khach_so = ((canVal * 5 + chiIdx * 2 + 7) % 9) + 1;
+// ── Đếm quân ─────────────────────────────────────────────────────
+function demQuan(startThan, taPalace){
+  const [cungStart, loaiThan] = THAN_INFO[startThan];
+  if(cungStart===taPalace) return cungStart;
+  let idx    = MAP_CUNG_IDX[cungStart];
+  const taIdx= MAP_CUNG_IDX[taPalace];
+  let total  = 0;
+  if(loaiThan==="1st"||loaiThan==="3rd"){
+    total+=1;
+    if(loaiThan==="1st") total+=LAC_THU[idx];
+  } else {
+    total+=LAC_THU[idx];
+  }
+  idx=(idx+1)%8;
+  while(idx!==taIdx){ total+=LAC_THU[idx]; idx=(idx+1)%8; }
+  return total;
+}
 
-  // Tướng: chọn theo tổng hợp ngày
-  const jd = dateToJD(y,m,d);
-  const tuongIdx = jd % 8; // 0..7 (Thái Ất là trung tâm, 8 tướng xung quanh)
-  const tuongNames = Object.keys(AN_PHAT_TABLE);
+// ── Tính Tướng ────────────────────────────────────────────────────
+function tinhTuong(toan){
+  const dai  = toan%10 || 1;
+  const tham = (dai*3)%10 || 1;
+  return [dai,tham];
+}
 
-  const chu_dai   = tuongNames[ tuongIdx % tuongNames.length ];
-  const chu_tham  = tuongNames[ (tuongIdx + 2) % tuongNames.length ];
-  const khach_dai = tuongNames[ (tuongIdx + 4) % tuongNames.length ];
-  const khach_tham= tuongNames[ (tuongIdx + 6) % tuongNames.length ];
+// ── Tính chất Toán số ─────────────────────────────────────────────
+function layTinhChat(toanSo){
+  const v = (toanSo%40)||40;
+  if(v===33||v===39)              return "THUAN_DUONG";
+  if(v===22||v===26)              return "THUAN_AM";
+  if(v===10||v===30)              return "CO_DUONG";
+  if(v===20||v===40)              return "CO_AM";
+  if([1,3,5,7,9].includes(v))    return "DON_DUONG";
+  if([2,4,6,8].includes(v))      return "DON_AM";
+  if([14,18,23].includes(v))     return "THUONG_HOA";
+  if(v===29||v===36)             return "THU_HOA";
+  if([12,16,27,34,38].includes(v))return "HA_HOA";
+  if([16,17,18,19,26,27,28,29,36,37,38,39].includes(v)) return "TAM_TAI";
+  if([13,19,31,37].includes(v))  return "TAP_TRUNG_DUONG";
+  if(v===24||v===28)             return "TAP_TRUNG_AM";
+  if(v===11||v===17)             return "DUONG_TRONG_AM";
+  if(v%10>=1&&v%10<=4)           return "VO_DIA";
+  return "BINH_THUONG";
+}
 
-  const don_he = canIdx < 5 ? "dương" : "âm";
+// ── Giải phẫu án Tướng ───────────────────────────────────────────
+function giaiPhauAn(cungTuong, thaiAt, vanXuong, thuyKich,
+                    dichDai, dichTham, toanSo){
+  const cungVX = THAN_INFO[vanXuong][0];
+  const cungTK = THAN_INFO[thuyKich][0];
+  const tinhChat = layTinhChat(toanSo);
+  const anHung = [];
 
-  function getAnPhat(tuongName, so){
-    const tbl = AN_PHAT_TABLE[tuongName] || {};
-    return tbl[so] || [];
+  if(cungTuong===5)       anHung.push("ĐỖ");
+  if(cungTuong===thaiAt)  anHung.push("TÙ");
+  if(cungTuong===cungVX)  anHung.push("QUAN");
+  if(cungTuong===cungTK)  anHung.push("YỂM");
+
+  const kcTA = khoangCach(cungTuong,thaiAt);
+  if(kcTA===4) anHung.push("CÁCH");
+  else if(kcTA===1) anHung.push("BÁCH");
+
+  const kcDD  = khoangCach(cungTuong,dichDai);
+  const kcDT  = khoangCach(cungTuong,dichTham);
+  const kcDDTA= khoangCach(dichDai,thaiAt);
+  const kcDDDT= khoangCach(dichDai,dichTham);
+
+  if(kcDD===1&&kcDT===1&&kcDDDT===2) anHung.push("HIỆP");
+  if(kcDD===1&&kcTA===1&&kcDDTA===2) anHung.push("ĐỀ");
+
+  if(anHung.length>0){
+    return { status:"hung", an_phat: anHung };
   }
 
+  // Không có án không gian → xét tính chất toán
+  const yeuKem  = ["DON","CO","VO_DIA"];
+  const cucDoan = ["THUAN_DUONG","THUAN_AM"];
+  if(yeuKem.some(k=>tinhChat.includes(k))){
+    return { status:"binh", an_phat:["HƯU"] };
+  }
+  if(cucDoan.some(k=>tinhChat.includes(k))){
+    return { status:"binh", an_phat:["BONG_BÓNG"] };
+  }
+  return { status:"cat", an_phat:["PHÁT"] };
+}
+
+// ── Tính một Cục ─────────────────────────────────────────────────
+function tinhCuc(tichSo, cucSo, donHe){
+  const idxTA = Math.floor(((cucSo-1)%24)/3);
+  const thaiAt= DUONG_PALACES[idxTA];
+
+  const mapVX = donHe==="duong" ? MAP_VX_DUONG : MAP_VX_AM;
+  const mapKT = donHe==="duong" ? MAP_KT_DUONG : MAP_KT_AM;
+
+  const vanXuong = mapVX[tichSo%18];
+  const keThan   = mapKT[tichSo%12];
+
+  const idxVX   = DIA_BAN.indexOf(vanXuong);
+  const idxKT   = DIA_BAN.indexOf(keThan);
+  const thuyKich= DIA_BAN[(4+modPos(idxVX-idxKT,16))%16];
+
+  const toanChu   = demQuan(vanXuong,thaiAt);
+  const toanKhach = demQuan(thuyKich,thaiAt);
+
+  const [chuDai,  chuTham  ] = tinhTuong(toanChu);
+  const [khachDai,khachTham] = tinhTuong(toanKhach);
+
+  const anChuDai    = giaiPhauAn(chuDai,   thaiAt,vanXuong,thuyKich, khachDai,khachTham, toanChu);
+  const anChuTham   = giaiPhauAn(chuTham,  thaiAt,vanXuong,thuyKich, khachDai,khachTham, toanChu);
+  const anKhachDai  = giaiPhauAn(khachDai, thaiAt,vanXuong,thuyKich, chuDai,  chuTham,   toanKhach);
+  const anKhachTham = giaiPhauAn(khachTham,thaiAt,vanXuong,thuyKich, chuDai,  chuTham,   toanKhach);
+
   return {
-    date: dateStr, don_he, can, chi,
-    toan_chu:   { so: toan_chu_so,   tinh_chat: TINH_CHAT_MAP[toan_chu_so]   || "" },
-    toan_khach: { so: toan_khach_so, tinh_chat: TINH_CHAT_MAP[toan_khach_so] || "" },
-    chu_dai_tuong:    { ten: chu_dai,   an_phat: getAnPhat(chu_dai,   toan_chu_so) },
-    chu_tham_tuong:   { ten: chu_tham,  an_phat: getAnPhat(chu_tham,  toan_chu_so) },
-    khach_dai_tuong:  { ten: khach_dai, an_phat: getAnPhat(khach_dai, toan_khach_so) },
-    khach_tham_tuong: { ten: khach_tham,an_phat: getAnPhat(khach_tham,toan_khach_so) },
+    thaiAt, vanXuong, keThan, thuyKich,
+    toanChu, toanKhach,
+    toanChuTinhChat:   layTinhChat(toanChu),
+    toanKhachTinhChat: layTinhChat(toanKhach),
+    chuDaiTuong:   { cung:chuDai,   an_phat:anChuDai.an_phat,   status:anChuDai.status },
+    chuThamTuong:  { cung:chuTham,  an_phat:anChuTham.an_phat,  status:anChuTham.status },
+    khachDaiTuong: { cung:khachDai, an_phat:anKhachDai.an_phat, status:anKhachDai.status },
+    khachThamTuong:{ cung:khachTham,an_phat:anKhachTham.an_phat,status:anKhachTham.status },
+  };
+}
+
+// ── Hàm chính: compute() ─────────────────────────────────────────
+function compute(y,m,d){
+  // Tích số Năm
+  const tichSoNam  = 10155509+(y-1592);
+  const tueCuc     = ((tichSoNam%3600)%72)||72;
+
+  // Tích số Tháng
+  const tichSoThang= (tichSoNam-1)*12+(m+2);
+  const nguyetCuc  = ((tichSoThang%3600)%72)||72;
+
+  // Tích số Ngày
+  const jdn        = toJDN(y,m,d);
+  const tichSoNgay = jdn+50;
+  const nhatCuc    = tichSoNgay%72||72;
+
+  // Âm/Dương Độn theo ngày trong năm
+  const doy   = dayOfYear(y,m,d);
+  const donHe = (doy>=172&&doy<=355)?"am":"duong";
+
+  // Tính Nhật Cục (D1 chính)
+  const nc = tinhCuc(tichSoNgay, nhatCuc, donHe);
+
+  // Can Chi để hiển thị
+  const canIdx = modPos(jdn-2440587,10);
+  const chiIdx = modPos(jdn-2440587,12);
+
+  return { nc, donHe, canIdx, chiIdx, doy };
+}
+
+// ── getThaiAtFeatures() — interface với UI ────────────────────────
+function getThaiAtFeatures(dateStr){
+  const [y,m,d] = dateStr.split('-').map(Number);
+  const { nc, donHe, canIdx, chiIdx } = compute(y,m,d);
+
+  return {
+    date: dateStr,
+    don_he: donHe,
+    can: CAN[canIdx],
+    chi: CHI[chiIdx],
+    toan_chu:   { so: nc.toanChu,   tinh_chat: nc.toanChuTinhChat },
+    toan_khach: { so: nc.toanKhach, tinh_chat: nc.toanKhachTinhChat },
+    chu_dai_tuong:    { ten:`Cung ${nc.chuDaiTuong.cung}`,   an_phat: nc.chuDaiTuong.an_phat },
+    chu_tham_tuong:   { ten:`Cung ${nc.chuThamTuong.cung}`,  an_phat: nc.chuThamTuong.an_phat },
+    khach_dai_tuong:  { ten:`Cung ${nc.khachDaiTuong.cung}`, an_phat: nc.khachDaiTuong.an_phat },
+    khach_tham_tuong: { ten:`Cung ${nc.khachThamTuong.cung}`,an_phat: nc.khachThamTuong.an_phat },
   };
 }
 
 // ══════════════════════════════════════════════════════════════════
-//  SIGNAL SCANNER (port từ signal_scanner.py)
+//  SIGNAL SCANNER — Logic theo đúng correlation CSV
 // ══════════════════════════════════════════════════════════════════
 
-// Bổ sung "TRUNG_DUONG" vào bộ lọc Bong Bóng
-const BONG_BONG = new Set(["THUAN_DUONG","TRUNG_DUONG","CO_DUONG","VO_DIA","VO_THIEN"]);
-
 function scanBTC(data){
-  const chu_tham_an   = data.chu_tham_tuong.an_phat;
-  const khach_tham_tc = data.toan_khach.tinh_chat;
+  const chu_tham_an   = data.chu_tham_tuong.an_phat || [];
+  const khach_tham_an = data.khach_tham_tuong.an_phat || [];
 
+  // ★ LONG: chu_tham dính QUAN (p=0.0135, ret_delta=+0.536%)
   if(chu_tham_an.includes("QUAN"))
     return { signal:"🟢 VÀO LỆNH LONG BTC", type:"long",
-      reason:"Tướng cơ động phe Bán dính án QUAN (bị khống chế). Nhà cái kẹt thanh khoản xả hàng — giá tự do bứt phá!", score:1 };
+      reason:"Chủ Tham Tướng dính án QUAN (p=0.0135). Phe Bán bị khống chế thanh khoản — Lợi thế tăng trưởng mạnh mẽ!", score:1 };
 
-  if(BONG_BONG.has(khach_tham_tc))
+  // ★ SHORT: khach_tham dính BONG_BÓNG (p=0.0312, ret_delta=-0.747%)
+  if(khach_tham_an.includes("BONG_BÓNG"))
     return { signal:"🔴 VÀO LỆNH SHORT BTC", type:"short",
-      reason:`Đám đông phe Mua rơi vào trạng thái BONG BÓNG (${khach_tham_tc}). Fomo mù quáng mất nền tảng — nhà cái sắp đạp sập hầm!`, score:-1 };
+      reason:"Khách Tham Tướng dính án BONG_BÓNG (p=0.0312). Lực mua rỗng, fomo quá mức — Nguy cơ sập mạnh!", score:-1 };
 
   return { signal:"⬜ ĐỨNG NGOÀI (NO TRADE)", type:"none",
-    reason:"Sa bàn giằng co, chưa có tín hiệu nhiễu loạn từ nhà cái.", score:0 };
+    reason:"Sa bàn giằng co, chưa có tín hiệu lệch pha từ các Tướng cơ động.", score:0 };
 }
 
 function scanXAU(data){
-  const chu_tc       = data.toan_chu.tinh_chat;
-  const khach_dai_an = data.khach_dai_tuong.an_phat;
+  const chu_dai_an    = data.chu_dai_tuong.an_phat || [];
+  const khach_tham_an = data.khach_tham_tuong.an_phat || [];
+  const khach_dai_an  = data.khach_dai_tuong.an_phat || [];
 
-  if(BONG_BONG.has(chu_tc))
+  // ★ LONG: chu_dai dính BONG_BÓNG (p=0.0488, ret_delta=+0.195%)
+  if(chu_dai_an.includes("BONG_BÓNG"))
     return { signal:"🟢 VÀO LỆNH LONG VÀNG (XAU)", type:"long",
-      reason:`Phe Bán dính án BONG BÓNG (${chu_tc}). Lực xả chỉ là tường ảo (Spoofing) cạn kiệt — Vàng sẽ đâm thủng kháng cự!`, score:1 };
+      reason:"Chủ Đại Tướng gặp BONG_BÓNG (p=0.0488). Tường xả ảo bị đập tan, kích hoạt lực cầu trú ẩn mạnh mẽ!", score:1 };
 
+  // Bổ trợ LONG: khach_tham gặp BÁCH (p=0.0513, winrate=59.23%)
+  if(khach_tham_an.includes("BÁCH"))
+    return { signal:"🟢 CÂN NHẮC LONG VÀNG (BỔ TRỢ)", type:"long",
+      reason:"Khách Tham Tướng gặp BÁCH (p=0.0513). Tỷ lệ nến xanh lịch sử đạt 59.23% — Xu hướng tăng ổn định.", score:0.7 };
+
+  // Lực cản: khach_dai dính TÙ (p=0.0848, winrate=49.88%)
   if(khach_dai_an.includes("TÙ"))
-    return { signal:"⚠️  ĐỨNG NGOÀI / CÂN NHẮC SHORT NGẮN", type:"short",
-      reason:"Tướng Vàng bị án TÙ (bị trói gô, kẹt thanh khoản). Giá đi ngang rỉ máu — Long sẽ bị chôn vốn.", score:-1 };
+    return { signal:"⚠️  ĐỨNG NGOÀI / HẠ TỶ TRỌNG LONG", type:"short",
+      reason:"Khách Đại Tướng dính án TÙ (p=0.0848). Dòng tiền Vàng bị trói, giá dễ đi ngang rỉ máu.", score:-0.5 };
 
   return { signal:"⬜ ĐỨNG NGOÀI (NO TRADE)", type:"none",
-    reason:"Chưa có tín hiệu bứt phá từ định tinh Vàng.", score:0 };
+    reason:"Chưa xuất hiện điểm hội tụ dòng tiền lớn của Vàng.", score:0 };
 }
 
 function checkVolTrend(data){
@@ -558,22 +733,52 @@ function checkVolTrend(data){
 //  DATE HELPERS
 // ══════════════════════════════════════════════════════════════════
 
-function today(){
-  const d=new Date();
-  return d.toISOString().split('T')[0];
+function todayStr(){
+  // Dùng local date, tránh timezone UTC lệch ngày
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,'0');
+  const dd= String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${dd}`;
 }
 
-function addDays(dateStr,n){
-  const d=new Date(dateStr+'T00:00:00');
+function addDays(dateStr, n){
+  const d = new Date(dateStr+'T00:00:00');
   d.setDate(d.getDate()+n);
-  return d.toISOString().split('T')[0];
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,'0');
+  const dd= String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${dd}`;
 }
 
 function fmtDate(dateStr){
-  const [y,m,d]=dateStr.split('-').map(Number);
-  const names=["CN","T2","T3","T4","T5","T6","T7"];
-  const dt=new Date(dateStr+'T00:00:00');
+  const [y,m,d] = dateStr.split('-').map(Number);
+  const names = ["CN","T2","T3","T4","T5","T6","T7"];
+  const dt = new Date(dateStr+'T00:00:00');
   return `${names[dt.getDay()]} ${d}/${m}/${y}`;
+}
+
+function isWeekend(dateStr){
+  const dt = new Date(dateStr+'T00:00:00');
+  return dt.getDay()===0 || dt.getDay()===6; // CN=0, T7=6
+}
+
+// Sinh danh sách ngày trong khoảng [start, end], lọc T7/CN cho XAU
+function buildDateList(startStr, endStr, asset){
+  const list = [];
+  let cur = startStr;
+  const MAX = 366; // chống vòng lặp vô hạn
+  let i = 0;
+  while(cur <= endStr && i < MAX){
+    // Với XAU only: bỏ T7, CN
+    if(asset === 'XAU' && isWeekend(cur)){
+      cur = addDays(cur, 1); i++; continue;
+    }
+    // Với BOTH: vẫn hiển thị ngày đó nhưng XAU sẽ hiện cảnh báo đóng cửa
+    list.push(cur);
+    cur = addDays(cur, 1); i++;
+  }
+  return list;
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -585,18 +790,25 @@ function anChips(arr){
   return arr.map(a=>`<span class="an-chip">${a}</span>`).join('');
 }
 
+function checkVolTrend(data){
+  if(data.toan_khach.so > data.toan_chu.so) return { text:"BULLISH (Khách Trường)", cls:"vol-bull" };
+  if(data.toan_chu.so  > data.toan_khach.so)return { text:"BEARISH (Chủ Trường)",  cls:"vol-bear" };
+  return { text:"NEUTRAL (Hòa)", cls:"vol-neut" };
+}
+
 function renderCard(dateStr, asset, idx){
-  const data = getThaiAtFeatures(dateStr);
-  const btcSig = scanBTC(data);
-  const xauSig = scanXAU(data);
-  const vol    = checkVolTrend(data);
+  const data    = getThaiAtFeatures(dateStr);
+  const btcSig  = scanBTC(data);
+  const vol     = checkVolTrend(data);
+  const weekend = isWeekend(dateStr);
 
   const showBTC = asset==="BOTH"||asset==="BTC";
   const showXAU = asset==="BOTH"||asset==="XAU";
 
-  const animDelay = `animation-delay:${idx*0.07}s`;
+  const animDelay = `animation-delay:${Math.min(idx,10)*0.06}s`;
 
   let btcHtml="", xauHtml="";
+
   if(showBTC){
     btcHtml=`
     <div class="asset-block">
@@ -605,16 +817,27 @@ function renderCard(dateStr, asset, idx){
       <div class="signal-reason">${btcSig.reason}</div>
     </div>`;
   }
+
   if(showXAU){
-    xauHtml=`
-    <div class="asset-block">
-      <div class="asset-label">🥇 XAU / USD</div>
-      <div class="signal-badge signal-${xauSig.type}">${xauSig.signal}</div>
-      <div class="signal-reason">${xauSig.reason}</div>
-    </div>`;
+    if(weekend && asset==="BOTH"){
+      // Hiện cảnh báo đóng cửa thay vì tín hiệu
+      xauHtml=`
+      <div class="asset-block">
+        <div class="asset-label">🥇 XAU / USD</div>
+        <div class="signal-badge signal-none">🔒 THỊ TRƯỜNG ĐÓNG CỬA</div>
+        <div class="signal-reason" style="color:var(--dim)">Vàng không giao dịch vào T7 & CN.</div>
+      </div>`;
+    } else {
+      const xauSig = scanXAU(data);
+      xauHtml=`
+      <div class="asset-block">
+        <div class="asset-label">🥇 XAU / USD</div>
+        <div class="signal-badge signal-${xauSig.type}">${xauSig.signal}</div>
+        <div class="signal-reason">${xauSig.reason}</div>
+      </div>`;
+    }
   }
 
-  // If only one asset, no grid split needed
   const bodyStyle = (!showBTC||!showXAU) ? "grid-template-columns:1fr" : "";
 
   return `
@@ -628,9 +851,9 @@ function renderCard(dateStr, asset, idx){
       ${xauHtml}
     </div>
     <div class="stats-row">
-      <div class="stat-pill">Khách: <b>${data.toan_khach.so}</b> [${data.toan_khach.tinh_chat}]</div>
-      <div class="stat-pill">Chủ: <b>${data.toan_chu.so}</b> [${data.toan_chu.tinh_chat}]</div>
-      <div class="stat-pill ${vol.cls}">Vol: <b>${vol.text}</b></div>
+      <div class="stat-pill">Toán Chủ: <b>${data.toan_chu.so}</b> [${data.toan_chu.tinh_chat}]</div>
+      <div class="stat-pill">Toán Khách: <b>${data.toan_khach.so}</b> [${data.toan_khach.tinh_chat}]</div>
+      <div class="stat-pill ${vol.cls}">Xu thế: <b>${vol.text}</b></div>
       <div class="stat-pill">Chủ Đại: ${anChips(data.chu_dai_tuong.an_phat)}</div>
       <div class="stat-pill">Chủ Tham: ${anChips(data.chu_tham_tuong.an_phat)}</div>
       <div class="stat-pill">Khách Đại: ${anChips(data.khach_dai_tuong.an_phat)}</div>
@@ -639,53 +862,171 @@ function renderCard(dateStr, asset, idx){
   </div>`;
 }
 
-// ── Build week chips ───────────────────────────────────────────────
-function buildWeekChips(){
-  const t = today();
-  const chips = document.getElementById('weekChips');
-  chips.innerHTML = '';
-  for(let i=0;i<7;i++){
-    const dt = addDays(t,i);
-    const chip = document.createElement('span');
-    chip.className = 'week-chip' + (i===0?' active':'');
-    chip.textContent = fmtDate(dt);
-    chip.dataset.date = dt;
-    chip.onclick = function(){
-      document.querySelectorAll('.week-chip').forEach(c=>c.classList.remove('active'));
-      this.classList.add('active');
-      document.getElementById('startDate').value = this.dataset.date;
-    };
-    chips.appendChild(chip);
+// ══════════════════════════════════════════════════════════════════
+//  REPORT BUILDER
+// ══════════════════════════════════════════════════════════════════
+
+function buildReport(dateList, asset){
+  const lines = [];
+  lines.push("╔══════════════════════════════════════════════════╗");
+  lines.push("  RADAR THÁI ẤT QUANT — BÁO CÁO TÍN HIỆU");
+  lines.push(`  Khoảng: ${fmtDate(dateList[0])} → ${fmtDate(dateList[dateList.length-1])}`);
+  lines.push(`  Tài sản: ${asset==='BOTH'?'BTC + XAU':asset}  |  Tạo lúc: ${new Date().toLocaleString('vi-VN')}`);
+  lines.push("  ⚡ Chỉ hiển thị ngày có tín hiệu giao dịch");
+  lines.push("╚══════════════════════════════════════════════════╝");
+  lines.push("");
+
+  let btcLong=0, btcShort=0, xauLong=0, xauWarn=0, signalDays=0;
+
+  for(const dt of dateList){
+    const data    = getThaiAtFeatures(dt);
+    const btcSig  = scanBTC(data);
+    const weekend = isWeekend(dt);
+    const xauSig  = (!weekend || asset==="BTC") ? scanXAU(data) : null;
+
+    // Xác định xem ngày này có tín hiệu thực sự không
+    const hasBTC = (asset!=="XAU") && btcSig.score !== 0;
+    const hasXAU = (asset!=="BTC") && !weekend && xauSig && xauSig.score !== 0;
+
+    // Bỏ qua ngày không có tín hiệu nào
+    if(!hasBTC && !hasXAU) {
+      // Vẫn đếm cho tóm tắt
+      if(asset!=="XAU" && btcSig.type==="long") btcLong++;
+      if(asset!=="XAU" && btcSig.type==="short") btcShort++;
+      continue;
+    }
+
+    signalDays++;
+    lines.push(`──────────────────────────────────────────────────`);
+    lines.push(`📅 ${fmtDate(dt)}  |  ${data.can} ${data.chi}  |  ${data.don_he.toUpperCase()} ĐỘN`);
+    lines.push(`   Án: ChuDai=${data.chu_dai_tuong.an_phat.join(',')||'—'}  ChuTham=${data.chu_tham_tuong.an_phat.join(',')||'—'}  KhachDai=${data.khach_dai_tuong.an_phat.join(',')||'—'}  KhachTham=${data.khach_tham_tuong.an_phat.join(',')||'—'}`);
+
+    if(hasBTC){
+      lines.push(`   ₿ BTC : ${btcSig.signal}`);
+      lines.push(`          → ${btcSig.reason}`);
+      if(btcSig.type==="long") btcLong++;
+      if(btcSig.type==="short") btcShort++;
+    }
+    if(hasXAU){
+      lines.push(`   🥇 XAU: ${xauSig.signal}`);
+      lines.push(`          → ${xauSig.reason}`);
+      if(xauSig.type==="long") xauLong++;
+      if(xauSig.score===-0.5) xauWarn++;
+    }
+    lines.push("");
   }
+
+  if(signalDays === 0){
+    lines.push("  (Không có ngày nào phát sinh tín hiệu giao dịch)");
+    lines.push("");
+  }
+
+  lines.push("══════════════════════════════════════════════════");
+  lines.push(`  TÓM TẮT: ${signalDays} ngày có tín hiệu / ${dateList.length} ngày quét`);
+  if(asset!=="XAU") lines.push(`  BTC  — LONG: ${btcLong} ngày  |  SHORT: ${btcShort} ngày`);
+  if(asset!=="BTC") lines.push(`  XAU  — LONG: ${xauLong} ngày  |  HẠ TỶ TRỌNG: ${xauWarn} ngày`);
+  lines.push("══════════════════════════════════════════════════");
+
+  return lines.join("\n");
+}
+
+function copyReport(){
+  const box = document.getElementById('reportBox');
+  box.select(); box.setSelectionRange(0,99999);
+  navigator.clipboard.writeText(box.value).then(()=>{
+    const btn = document.getElementById('copyBtn');
+    btn.textContent = '✓ ĐÃ COPY';
+    btn.style.color = 'var(--green)';
+    setTimeout(()=>{ btn.textContent='⧉ COPY'; btn.style.color='var(--gold)'; }, 2000);
+  }).catch(()=>{
+    document.execCommand('copy');
+  });
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  RANGE CHIP LOGIC
+// ══════════════════════════════════════════════════════════════════
+
+function setRange(start, end){
+  document.getElementById('startDate').value = start;
+  document.getElementById('endDate').value   = end;
+}
+
+function initRangeChips(){
+  const t = todayStr();
+  document.querySelectorAll('#rangeChips .week-chip').forEach(chip=>{
+    chip.onclick = function(){
+      document.querySelectorAll('#rangeChips .week-chip').forEach(c=>c.classList.remove('active'));
+      this.classList.add('active');
+      const r = this.dataset.range;
+      if(r==='today')  setRange(t, t);
+      if(r==='week')   setRange(t, addDays(t,6));
+      if(r==='2week')  setRange(t, addDays(t,13));
+      if(r==='month')  setRange(t, addDays(t,29));
+      if(r==='custom') {/* user chỉnh tay */}
+    };
+  });
 }
 
 // ── Main run ──────────────────────────────────────────────────────
 function runScan(){
   const startDate = document.getElementById('startDate').value;
+  const endDate   = document.getElementById('endDate').value;
   const asset     = document.getElementById('assetSelect').value;
-  if(!startDate){ alert('Vui lòng chọn ngày bắt đầu!'); return; }
+
+  if(!startDate||!endDate){ alert('Vui lòng chọn đủ ngày bắt đầu và kết thúc!'); return; }
+  if(startDate > endDate){ alert('Ngày bắt đầu phải nhỏ hơn hoặc bằng ngày kết thúc!'); return; }
 
   document.getElementById('empty').style.display='none';
   document.getElementById('loading').style.display='block';
   document.getElementById('results').innerHTML='';
+  document.getElementById('reportWrap').style.display='none';
+  document.getElementById('exportBtnWrap').style.display='none';
 
   setTimeout(()=>{
     document.getElementById('loading').style.display='none';
-    const results=document.getElementById('results');
-    let html='';
-    for(let i=0;i<7;i++){
-      const dt=addDays(startDate,i);
-      html+=renderCard(dt,asset,i);
+
+    const dateList = buildDateList(startDate, endDate, asset);
+
+    if(dateList.length===0){
+      document.getElementById('empty').style.display='block';
+      document.getElementById('empty').querySelector('.empty-icon').textContent='🔒';
+      document.getElementById('empty').querySelector('div:last-child') && (document.getElementById('empty').innerHTML='<div class="empty-icon">🔒</div>Không có ngày giao dịch trong khoảng này (XAU đóng cửa T7, CN).');
+      return;
     }
-    results.innerHTML=html;
-  },200);
+
+    const results = document.getElementById('results');
+    let html = '';
+    dateList.forEach((dt,i)=>{ html += renderCard(dt, asset, i); });
+    results.innerHTML = html;
+
+    // Lưu lại để dùng khi user bấm Xuất Báo Cáo
+    window._lastDateList = dateList;
+    window._lastAsset    = asset;
+    document.getElementById('exportBtnWrap').style.display='block';
+    document.getElementById('reportWrap').style.display='none';
+
+  }, 200);
+}
+
+function exportReport(){
+  const dateList = window._lastDateList;
+  const asset    = window._lastAsset;
+  if(!dateList||!dateList.length){ alert('Chưa có dữ liệu — hãy quét kèo trước!'); return; }
+  const report = buildReport(dateList, asset);
+  document.getElementById('reportBox').value = report;
+  document.getElementById('reportWrap').style.display='block';
+  document.getElementById('reportWrap').scrollIntoView({ behavior:'smooth', block:'start' });
 }
 
 // ── Init ──────────────────────────────────────────────────────────
 (function init(){
-  const t=today();
-  document.getElementById('startDate').value=t;
-  buildWeekChips();
+  const t = todayStr();
+  document.getElementById('startDate').value = t;
+  document.getElementById('endDate').value   = addDays(t, 6);
+  initRangeChips();
+  // Auto-run ngay khi mở app
+  runScan();
 })();
 </script>
 </body>

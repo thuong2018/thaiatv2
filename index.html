@@ -410,6 +410,24 @@ footer{
   </div>
 </div>
 
+<!-- Nút Xuất Báo Cáo — nằm TRÊN kết quả, chỉ hiện sau khi đã quét -->
+<div id="exportBtnWrap" style="display:none;text-align:center;margin-bottom:1.2rem;">
+  <button onclick="exportReport()" style="font-family:'Cinzel Decorative',serif;font-size:.78rem;font-weight:700;background:linear-gradient(135deg,rgba(200,168,75,0.15) 0%,rgba(200,168,75,0.08) 100%);border:1px solid var(--gold);color:var(--gold);padding:.65rem 2rem;border-radius:8px;cursor:pointer;letter-spacing:.08em;transition:all .2s;box-shadow:0 0 18px rgba(200,168,75,0.1);" onmouseover="this.style.background='rgba(200,168,75,0.22)'" onmouseout="this.style.background='linear-gradient(135deg,rgba(200,168,75,0.15) 0%,rgba(200,168,75,0.08) 100%)'">📋 XUẤT BÁO CÁO</button>
+</div>
+
+<!-- REPORT BOX — nằm TRÊN kết quả -->
+<div id="reportWrap" style="display:none;margin-bottom:2rem;">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem;">
+    <span style="font-family:'Share Tech Mono',monospace;font-size:.75rem;color:var(--gold);letter-spacing:.15em;text-transform:uppercase;">📋 Báo Cáo Tín Hiệu</span>
+    <div style="display:flex;gap:.5rem;align-items:center;">
+      <button onclick="copyReport()" id="copyBtn" style="font-family:'Share Tech Mono',monospace;font-size:.72rem;background:rgba(200,168,75,0.12);border:1px solid var(--border);color:var(--gold);padding:.3rem .9rem;border-radius:5px;cursor:pointer;transition:all .2s;">⧉ COPY</button>
+      <button onclick="closeReport()" style="font-family:'Share Tech Mono',monospace;font-size:.72rem;background:rgba(100,100,100,0.1);border:1px solid rgba(100,100,100,0.3);color:var(--gray);padding:.3rem .7rem;border-radius:5px;cursor:pointer;transition:all .2s;">✕</button>
+    </div>
+  </div>
+  <textarea id="reportBox" readonly
+    style="width:100%;min-height:220px;background:rgba(6,6,14,0.9);border:1px solid var(--border);border-radius:8px;color:#b0c0a0;font-family:'Share Tech Mono',monospace;font-size:.72rem;line-height:1.7;padding:1rem;resize:vertical;outline:none;"></textarea>
+</div>
+
 <!-- RESULTS -->
 <div id="loading"><div class="spinner"></div>Đang giải sa bàn...</div>
 <div id="empty">
@@ -417,21 +435,6 @@ footer{
   Chọn khoảng thời gian và nhấn QUÉT KÈO để bắt đầu
 </div>
 <div id="results"></div>
-
-<!-- REPORT BOX -->
-<div id="reportWrap" style="display:none;margin-top:2rem;">
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem;">
-    <span style="font-family:'Share Tech Mono',monospace;font-size:.75rem;color:var(--gold);letter-spacing:.15em;text-transform:uppercase;">📋 Báo Cáo Tín Hiệu</span>
-    <button onclick="copyReport()" id="copyBtn" style="font-family:'Share Tech Mono',monospace;font-size:.72rem;background:rgba(200,168,75,0.12);border:1px solid var(--border);color:var(--gold);padding:.3rem .9rem;border-radius:5px;cursor:pointer;transition:all .2s;">⧉ COPY</button>
-  </div>
-  <textarea id="reportBox" readonly
-    style="width:100%;min-height:220px;background:rgba(6,6,14,0.9);border:1px solid var(--border);border-radius:8px;color:#b0c0a0;font-family:'Share Tech Mono',monospace;font-size:.72rem;line-height:1.7;padding:1rem;resize:vertical;outline:none;"></textarea>
-</div>
-
-<!-- Nút Xuất Báo Cáo — chỉ hiện sau khi đã quét -->
-<div id="exportBtnWrap" style="display:none;text-align:center;margin-top:1.5rem;">
-  <button onclick="exportReport()" style="font-family:'Cinzel Decorative',serif;font-size:.78rem;font-weight:700;background:linear-gradient(135deg,rgba(200,168,75,0.15) 0%,rgba(200,168,75,0.08) 100%);border:1px solid var(--gold);color:var(--gold);padding:.65rem 2rem;border-radius:8px;cursor:pointer;letter-spacing:.08em;transition:all .2s;box-shadow:0 0 18px rgba(200,168,75,0.1);" onmouseover="this.style.background='rgba(200,168,75,0.22)'" onmouseout="this.style.background='linear-gradient(135deg,rgba(200,168,75,0.15) 0%,rgba(200,168,75,0.08) 100%)'">📋 XUẤT BÁO CÁO</button>
-</div>
 
 <footer>THÁI ẤT QUANT &nbsp;·&nbsp; DỰA TRÊN THUẬT TOÁN NHẬT CỤC &nbsp;·&nbsp; KHÔNG PHẢI TƯ VẤN ĐẦU TƯ</footer>
 </div>
@@ -1016,7 +1019,12 @@ function exportReport(){
   const report = buildReport(dateList, asset);
   document.getElementById('reportBox').value = report;
   document.getElementById('reportWrap').style.display='block';
+  // Scroll lên reportWrap (nằm trên results)
   document.getElementById('reportWrap').scrollIntoView({ behavior:'smooth', block:'start' });
+}
+
+function closeReport(){
+  document.getElementById('reportWrap').style.display='none';
 }
 
 // ── Init ──────────────────────────────────────────────────────────

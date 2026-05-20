@@ -378,7 +378,7 @@ footer{
 <header>
   <span class="octagram">☯</span>
   <h1>Radar Thái Ất Quant</h1>
-  <p class="subtitle">BTC · XAU &nbsp;|&nbsp; Signal Scanner &nbsp;|&nbsp; Nhật Cục</p>
+  <p class="subtitle">BTC · XAU · USD/JPY &nbsp;|&nbsp; Signal Scanner &nbsp;|&nbsp; Nhật Cục</p>
 </header>
 
 <!-- CONTROLS -->
@@ -397,6 +397,8 @@ footer{
       <option value="BOTH">BTC + XAU</option>
       <option value="BTC">BTC only</option>
       <option value="XAU">XAU only</option>
+      <option value="USDJPY">USD/JPY only</option>
+      <option value="ALL">BTC + XAU + USD/JPY</option>
     </select>
   </div>
   <button class="btn-run" onclick="runScan()">QUÉT KÈO ▶</button>
@@ -724,12 +726,72 @@ function scanXAU(data){
     reason:"Chưa xuất hiện điểm hội tụ dòng tiền lớn của Vàng.", score:0 };
 }
 
+// ══════════════════════════════════════════════════════════════════
+//  SIGNAL SCANNER — USD/JPY (9 tín hiệu p<0.05 significant)
+// ══════════════════════════════════════════════════════════════════
+
+function scanUSDJPY(data){
+  const don_he        = data.don_he;
+  const chu_dai_an    = data.chu_dai_tuong.an_phat   || [];
+  const chu_tham_an   = data.chu_tham_tuong.an_phat  || [];
+  const khach_dai_an  = data.khach_dai_tuong.an_phat || [];
+  const khach_tham_an = data.khach_tham_tuong.an_phat|| [];
+  const tinhChatChu   = data.toan_chu.tinh_chat;
+  const HUNG_ANS = ["TÙ","ĐỖ","QUAN","YỂM","CÁCH","BÁCH","HIỆP","ĐỀ","HƯU"];
+
+  // #1 ÂM ĐỘN + Chủ Đại CÁT — Win 62.0%, Sharpe +4.00, n=179, p=0.0009
+  if(don_he==="am" && chu_dai_an.includes("PHÁT") && chu_dai_an.length===1)
+    return { signal:"🟢 VÀO LỆNH LONG USD/JPY", type:"long", score:3,
+      reason:"ÂM ĐỘN + Chủ Đại CÁT/PHÁT (p=0.0009). Win 62.0% | Sharpe +4.00 | n=179. Lực cầu USD rất mạnh!" };
+
+  // #2 ÂM ĐỘN + Chủ CÁT + Khách HUNG — Win 60.6%, Sharpe +4.06, n=155, p=0.0018
+  if(don_he==="am" && chu_dai_an.includes("PHÁT") && khach_dai_an.some(a=>HUNG_ANS.includes(a)))
+    return { signal:"🟢 VÀO LỆNH LONG USD/JPY", type:"long", score:2.9,
+      reason:"ÂM ĐỘN + Chủ CÁT + Khách HUNG (p=0.0018). Win 60.6% | Sharpe +4.06 | n=155. Phe Yên yếu, USD bứt phá!" };
+
+  // #3 Khách Tham CÁT — Win 61.0%, Sharpe +3.38, n=177, p=0.0052
+  if(khach_tham_an.includes("PHÁT") && khach_tham_an.length===1)
+    return { signal:"🟢 VÀO LỆNH LONG USD/JPY", type:"long", score:2.5,
+      reason:"Khách Tham CÁT/PHÁT (p=0.0052). Win 61.0% | Sharpe +3.38 | n=177. Áp lực bán JPY dâng cao!" };
+
+  // #5 ÂM ĐỘN + TAM_TAI — Win 58.7%, Sharpe +2.81, n=196, p=0.0141
+  if(don_he==="am" && tinhChatChu==="TAM_TAI")
+    return { signal:"🟢 VÀO LỆNH LONG USD/JPY", type:"long", score:2.2,
+      reason:"ÂM ĐỘN + TAM_TAI (p=0.0141). Win 58.7% | Sharpe +2.81 | n=196. Biến động, thiên về tăng!" };
+
+  // #7 DƯƠNG ĐỘN + BÌNH THƯỜNG — Win 56.6%, Sharpe +2.83, n=173, p=0.0201
+  if(don_he==="duong" && tinhChatChu==="BINH_THUONG")
+    return { signal:"🟢 CÂN NHẮC LONG USD/JPY", type:"long", score:1.8,
+      reason:"DƯƠNG ĐỘN + BÌNH THƯỜNG (p=0.0201). Win 56.6% | Sharpe +2.83 | n=173. Môi trường ổn định, bias tăng nhẹ." };
+
+  // #6 DƯƠNG ĐỘN + CA_HAI_HUNG (cả 2 phía đều HUNG) — Win 55.9%, Sharpe +1.58, n=574, p=0.0173
+  if(don_he==="duong" && chu_dai_an.some(a=>HUNG_ANS.includes(a)) && khach_dai_an.some(a=>HUNG_ANS.includes(a)))
+    return { signal:"🟢 CÂN NHẮC LONG USD/JPY", type:"long", score:1.6,
+      reason:"DƯƠNG ĐỘN + CA_HAI_HUNG (p=0.0173). Win 55.9% | Sharpe +1.58 | n=574. Cả 2 phe bị cản, USD nhỉnh hơn." };
+
+  // #4 DƯƠNG ĐỘN + Chủ Đại HUNG — Win 55.8%, Sharpe +1.40, n=779, p=0.0141
+  if(don_he==="duong" && chu_dai_an.some(a=>HUNG_ANS.includes(a)))
+    return { signal:"🟢 CÂN NHẮC LONG USD/JPY", type:"long", score:1.5,
+      reason:"DƯƠNG ĐỘN + Chủ Đại HUNG (p=0.0141). Win 55.8% | Sharpe +1.40 | n=779. Chủ bị cản nhưng phe Yên yếu hơn!" };
+
+  // #8 Khách Án TÙ — Win 59.2%, Sharpe +1.61, n=400, p=0.0431
+  if(khach_dai_an.includes("TÙ") || khach_tham_an.includes("TÙ"))
+    return { signal:"🟢 CÂN NHẮC LONG USD/JPY", type:"long", score:1.4,
+      reason:"Khách (JPY) dính án TÙ (p=0.0431). Win 59.2% | Sharpe +1.61 | n=400. Yên bị trói, USD hưởng lợi!" };
+
+  // #9 DƯƠNG ĐỘN base — Win 54.8%, Sharpe +1.00, n=1013, p=0.0447
+  if(don_he==="duong")
+    return { signal:"⚪ BIAS LONG USD/JPY (YẾU)", type:"long", score:0.8,
+      reason:"DƯƠNG ĐỘN (p=0.0447). Win 54.8% | Sharpe +1.00 | n=1013. Bias tăng nhẹ — cần thêm xác nhận kỹ thuật!" };
+
+  return { signal:"⬜ ĐỨNG NGOÀI (NO TRADE)", type:"none", score:0,
+    reason:"Chưa tìm thấy tín hiệu significant (p<0.05) nào cho USD/JPY hôm nay." };
+}
+
 function checkVolTrend(data){
-  if(data.toan_khach.so > data.toan_chu.so)
-    return { text:"BULLISH (Khách Trường)", cls:"vol-bull" };
-  if(data.toan_chu.so > data.toan_khach.so)
-    return { text:"BEARISH (Chủ Trường)",  cls:"vol-bear" };
-  return { text:"NEUTRAL (Hòa)",          cls:"vol-neut" };
+  if(data.toan_khach.so > data.toan_chu.so) return { text:"BULLISH (Khách Trường)", cls:"vol-bull" };
+  if(data.toan_chu.so  > data.toan_khach.so)return { text:"BEARISH (Chủ Trường)",  cls:"vol-bear" };
+  return { text:"NEUTRAL (Hòa)", cls:"vol-neut" };
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -766,18 +828,18 @@ function isWeekend(dateStr){
   return dt.getDay()===0 || dt.getDay()===6; // CN=0, T7=6
 }
 
-// Sinh danh sách ngày trong khoảng [start, end], lọc T7/CN cho XAU
+// Sinh danh sách ngày trong khoảng [start, end], lọc T7/CN cho XAU và USDJPY
 function buildDateList(startStr, endStr, asset){
   const list = [];
   let cur = startStr;
-  const MAX = 366; // chống vòng lặp vô hạn
+  const MAX = 366;
   let i = 0;
   while(cur <= endStr && i < MAX){
-    // Với XAU only: bỏ T7, CN
-    if(asset === 'XAU' && isWeekend(cur)){
+    const wknd = isWeekend(cur);
+    // XAU only hoặc USDJPY only: bỏ T7, CN
+    if((asset==='XAU' || asset==='USDJPY') && wknd){
       cur = addDays(cur, 1); i++; continue;
     }
-    // Với BOTH: vẫn hiển thị ngày đó nhưng XAU sẽ hiện cảnh báo đóng cửa
     list.push(cur);
     cur = addDays(cur, 1); i++;
   }
@@ -793,24 +855,20 @@ function anChips(arr){
   return arr.map(a=>`<span class="an-chip">${a}</span>`).join('');
 }
 
-function checkVolTrend(data){
-  if(data.toan_khach.so > data.toan_chu.so) return { text:"BULLISH (Khách Trường)", cls:"vol-bull" };
-  if(data.toan_chu.so  > data.toan_khach.so)return { text:"BEARISH (Chủ Trường)",  cls:"vol-bear" };
-  return { text:"NEUTRAL (Hòa)", cls:"vol-neut" };
-}
-
 function renderCard(dateStr, asset, idx){
   const data    = getThaiAtFeatures(dateStr);
   const btcSig  = scanBTC(data);
+  const jpySig  = scanUSDJPY(data);
   const vol     = checkVolTrend(data);
   const weekend = isWeekend(dateStr);
 
-  const showBTC = asset==="BOTH"||asset==="BTC";
-  const showXAU = asset==="BOTH"||asset==="XAU";
+  const showBTC  = asset==="BOTH"||asset==="BTC"||asset==="ALL";
+  const showXAU  = asset==="BOTH"||asset==="XAU"||asset==="ALL";
+  const showJPY  = asset==="USDJPY"||asset==="ALL";
 
   const animDelay = `animation-delay:${Math.min(idx,10)*0.06}s`;
 
-  let btcHtml="", xauHtml="";
+  let btcHtml="", xauHtml="", jpyHtml="";
 
   if(showBTC){
     btcHtml=`
@@ -822,8 +880,7 @@ function renderCard(dateStr, asset, idx){
   }
 
   if(showXAU){
-    if(weekend && asset==="BOTH"){
-      // Hiện cảnh báo đóng cửa thay vì tín hiệu
+    if(weekend && (asset==="BOTH"||asset==="ALL")){
       xauHtml=`
       <div class="asset-block">
         <div class="asset-label">🥇 XAU / USD</div>
@@ -841,7 +898,24 @@ function renderCard(dateStr, asset, idx){
     }
   }
 
-  const bodyStyle = (!showBTC||!showXAU) ? "grid-template-columns:1fr" : "";
+  if(showJPY){
+    const scoreColor = jpySig.score>=2?"var(--green)":jpySig.score>=1?"#90c878":"var(--gray)";
+    jpyHtml=`
+    <div class="asset-block">
+      <div class="asset-label">💴 USD / JPY</div>
+      <div class="signal-badge signal-${jpySig.type}">${jpySig.signal}</div>
+      <div class="signal-reason">${jpySig.reason}</div>
+      <div style="margin-top:.4rem;font-family:'Share Tech Mono',monospace;font-size:.62rem;color:${scoreColor}">★ Score: ${jpySig.score>0?'+'+jpySig.score:jpySig.score}</div>
+    </div>`;
+  }
+
+  // Tính số cột linh hoạt
+  const colCount = [showBTC,showXAU,showJPY].filter(Boolean).length;
+  const bodyStyle = colCount===1
+    ? "grid-template-columns:1fr"
+    : colCount===3
+      ? "grid-template-columns:1fr 1fr 1fr"
+      : "";
 
   return `
   <div class="day-card" style="${animDelay}">
@@ -852,6 +926,7 @@ function renderCard(dateStr, asset, idx){
     <div class="card-body" style="${bodyStyle}">
       ${btcHtml}
       ${xauHtml}
+      ${jpyHtml}
     </div>
     <div class="stats-row">
       <div class="stat-pill">Toán Chủ: <b>${data.toan_chu.so}</b> [${data.toan_chu.tinh_chat}]</div>
@@ -874,28 +949,28 @@ function buildReport(dateList, asset){
   lines.push("╔══════════════════════════════════════════════════╗");
   lines.push("  RADAR THÁI ẤT QUANT — BÁO CÁO TÍN HIỆU");
   lines.push(`  Khoảng: ${fmtDate(dateList[0])} → ${fmtDate(dateList[dateList.length-1])}`);
-  lines.push(`  Tài sản: ${asset==='BOTH'?'BTC + XAU':asset}  |  Tạo lúc: ${new Date().toLocaleString('vi-VN')}`);
+  const assetLabel = asset==='BOTH'?'BTC + XAU':asset==='ALL'?'BTC + XAU + USD/JPY':asset;
+  lines.push(`  Tài sản: ${assetLabel}  |  Tạo lúc: ${new Date().toLocaleString('vi-VN')}`);
   lines.push("  ⚡ Chỉ hiển thị ngày có tín hiệu giao dịch");
   lines.push("╚══════════════════════════════════════════════════╝");
   lines.push("");
 
-  let btcLong=0, btcShort=0, xauLong=0, xauWarn=0, signalDays=0;
+  let btcLong=0, btcShort=0, xauLong=0, xauWarn=0, jpyLong=0, signalDays=0;
 
   for(const dt of dateList){
     const data    = getThaiAtFeatures(dt);
     const btcSig  = scanBTC(data);
+    const jpySig  = scanUSDJPY(data);
     const weekend = isWeekend(dt);
-    const xauSig  = (!weekend || asset==="BTC") ? scanXAU(data) : null;
+    const xauSig  = (!weekend || asset==="BTC"||asset==="USDJPY") ? scanXAU(data) : null;
 
-    // Xác định xem ngày này có tín hiệu thực sự không
-    const hasBTC = (asset!=="XAU") && btcSig.score !== 0;
-    const hasXAU = (asset!=="BTC") && !weekend && xauSig && xauSig.score !== 0;
+    const hasBTC = (asset!=="XAU"&&asset!=="USDJPY") && btcSig.score !== 0;
+    const hasXAU = (asset!=="BTC"&&asset!=="USDJPY") && !weekend && xauSig && xauSig.score !== 0;
+    const hasJPY = (asset==="USDJPY"||asset==="ALL") && jpySig.score !== 0;
 
-    // Bỏ qua ngày không có tín hiệu nào
-    if(!hasBTC && !hasXAU) {
-      // Vẫn đếm cho tóm tắt
-      if(asset!=="XAU" && btcSig.type==="long") btcLong++;
-      if(asset!=="XAU" && btcSig.type==="short") btcShort++;
+    if(!hasBTC && !hasXAU && !hasJPY) {
+      if(asset!=="XAU"&&asset!=="USDJPY"){ if(btcSig.type==="long") btcLong++; if(btcSig.type==="short") btcShort++; }
+      if(asset==="USDJPY"||asset==="ALL"){ if(jpySig.type==="long") jpyLong++; }
       continue;
     }
 
@@ -905,16 +980,21 @@ function buildReport(dateList, asset){
     lines.push(`   Án: ChuDai=${data.chu_dai_tuong.an_phat.join(',')||'—'}  ChuTham=${data.chu_tham_tuong.an_phat.join(',')||'—'}  KhachDai=${data.khach_dai_tuong.an_phat.join(',')||'—'}  KhachTham=${data.khach_tham_tuong.an_phat.join(',')||'—'}`);
 
     if(hasBTC){
-      lines.push(`   ₿ BTC : ${btcSig.signal}`);
-      lines.push(`          → ${btcSig.reason}`);
+      lines.push(`   ₿ BTC    : ${btcSig.signal}`);
+      lines.push(`              → ${btcSig.reason}`);
       if(btcSig.type==="long") btcLong++;
       if(btcSig.type==="short") btcShort++;
     }
     if(hasXAU){
-      lines.push(`   🥇 XAU: ${xauSig.signal}`);
-      lines.push(`          → ${xauSig.reason}`);
+      lines.push(`   🥇 XAU   : ${xauSig.signal}`);
+      lines.push(`              → ${xauSig.reason}`);
       if(xauSig.type==="long") xauLong++;
       if(xauSig.score===-0.5) xauWarn++;
+    }
+    if(hasJPY){
+      lines.push(`   💴 USD/JPY: ${jpySig.signal}  [Score: +${jpySig.score}]`);
+      lines.push(`              → ${jpySig.reason}`);
+      if(jpySig.type==="long") jpyLong++;
     }
     lines.push("");
   }
@@ -926,8 +1006,9 @@ function buildReport(dateList, asset){
 
   lines.push("══════════════════════════════════════════════════");
   lines.push(`  TÓM TẮT: ${signalDays} ngày có tín hiệu / ${dateList.length} ngày quét`);
-  if(asset!=="XAU") lines.push(`  BTC  — LONG: ${btcLong} ngày  |  SHORT: ${btcShort} ngày`);
-  if(asset!=="BTC") lines.push(`  XAU  — LONG: ${xauLong} ngày  |  HẠ TỶ TRỌNG: ${xauWarn} ngày`);
+  if(asset!=="XAU"&&asset!=="USDJPY") lines.push(`  BTC     — LONG: ${btcLong} ngày  |  SHORT: ${btcShort} ngày`);
+  if(asset!=="BTC"&&asset!=="USDJPY") lines.push(`  XAU     — LONG: ${xauLong} ngày  |  HẠ TỶ TRỌNG: ${xauWarn} ngày`);
+  if(asset==="USDJPY"||asset==="ALL") lines.push(`  USD/JPY — LONG: ${jpyLong} ngày`);
   lines.push("══════════════════════════════════════════════════");
 
   return lines.join("\n");

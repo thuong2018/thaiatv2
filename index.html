@@ -727,65 +727,85 @@ function scanXAU(data){
 }
 
 // ══════════════════════════════════════════════════════════════════
-//  SIGNAL SCANNER — USD/JPY (9 tín hiệu p<0.05 significant)
+//  MODULE FOREX: USD/JPY SIGNAL SCANNER
+//  Định chuẩn: USD = CHỦ (Host/dẫn dắt), JPY = KHÁCH (Guest/bị động)
+//  Lợi thế LONG bùng nổ mạnh nhất vào mùa ÂM ĐỘN (nửa cuối năm)
 // ══════════════════════════════════════════════════════════════════
 
+// Từ điển HUNG: án phạt Tướng + trạng thái Toán số rỗng/fomo
+const JPY_HUNG_KW = ["CÁCH","BÁCH","TÙ","ĐỖ","YỂM","VÔ ĐỊA","VÔ THIÊN","CÔ DƯƠNG","TRÙNG DƯƠNG","THUẦN DƯƠNG"];
+// Từ điển CÁT: Tướng vung cờ PHÁT, Toán số đạt TRƯỜNG HÒA
+const JPY_CAT_KW  = ["PHÁT","TRƯỜNG HÒA","SINH"];
+
+function _jpy_isCat(an_arr, tinh_chat){
+  const s = (an_arr.join(" ") + " " + tinh_chat).toUpperCase();
+  return JPY_CAT_KW.some(kw => s.includes(kw));
+}
+function _jpy_isHung(an_arr, tinh_chat){
+  const s = (an_arr.join(" ") + " " + tinh_chat).toUpperCase();
+  return JPY_HUNG_KW.some(kw => s.includes(kw));
+}
+
 function scanUSDJPY(data){
-  const don_he        = data.don_he;
-  const chu_dai_an    = data.chu_dai_tuong.an_phat   || [];
-  const chu_tham_an   = data.chu_tham_tuong.an_phat  || [];
-  const khach_dai_an  = data.khach_dai_tuong.an_phat || [];
-  const khach_tham_an = data.khach_tham_tuong.an_phat|| [];
-  const tinhChatChu   = data.toan_chu.tinh_chat;
-  const HUNG_ANS = ["TÙ","ĐỖ","QUAN","YỂM","CÁCH","BÁCH","HIỆP","ĐỀ","HƯU"];
+  // don_he từ engine trả về "am" hoặc "duong" — chuẩn hoá để so sánh
+  const donHe = (data.don_he || "").toLowerCase().replace("â","a"); // "am" | "duong"
 
-  // #1 ÂM ĐỘN + Chủ Đại CÁT — Win 62.0%, Sharpe +4.00, n=179, p=0.0009
-  if(don_he==="am" && chu_dai_an.includes("PHÁT") && chu_dai_an.length===1)
-    return { signal:"🟢 VÀO LỆNH LONG USD/JPY", type:"long", score:3,
-      reason:"ÂM ĐỘN + Chủ Đại CÁT/PHÁT (p=0.0009). Win 62.0% | Sharpe +4.00 | n=179. Lực cầu USD rất mạnh!" };
+  const chu_dai_an    = data.chu_dai_tuong.an_phat    || [];
+  const chu_tham_an   = data.chu_tham_tuong.an_phat   || [];
+  const khach_dai_an  = data.khach_dai_tuong.an_phat  || [];
+  const khach_tham_an = data.khach_tham_tuong.an_phat || [];
 
-  // #2 ÂM ĐỘN + Chủ CÁT + Khách HUNG — Win 60.6%, Sharpe +4.06, n=155, p=0.0018
-  if(don_he==="am" && chu_dai_an.includes("PHÁT") && khach_dai_an.some(a=>HUNG_ANS.includes(a)))
-    return { signal:"🟢 VÀO LỆNH LONG USD/JPY", type:"long", score:2.9,
-      reason:"ÂM ĐỘN + Chủ CÁT + Khách HUNG (p=0.0018). Win 60.6% | Sharpe +4.06 | n=155. Phe Yên yếu, USD bứt phá!" };
+  // Tính chất Toán số (engine trả về string hoặc array)
+  const tc_chu   = Array.isArray(data.toan_chu.tinh_chat)
+    ? data.toan_chu.tinh_chat.join(" ") : String(data.toan_chu.tinh_chat || "");
+  const tc_khach = Array.isArray(data.toan_khach.tinh_chat)
+    ? data.toan_khach.tinh_chat.join(" ") : String(data.toan_khach.tinh_chat || "");
 
-  // #3 Khách Tham CÁT — Win 61.0%, Sharpe +3.38, n=177, p=0.0052
-  if(khach_tham_an.includes("PHÁT") && khach_tham_an.length===1)
-    return { signal:"🟢 VÀO LỆNH LONG USD/JPY", type:"long", score:2.5,
-      reason:"Khách Tham CÁT/PHÁT (p=0.0052). Win 61.0% | Sharpe +3.38 | n=177. Áp lực bán JPY dâng cao!" };
+  // Phân tích lực lượng
+  const chu_dai_cat  = _jpy_isCat(chu_dai_an,  tc_chu);
+  const chu_dai_hung = _jpy_isHung(chu_dai_an, tc_chu);
+  const khach_hung   = _jpy_isHung(khach_dai_an, tc_khach) || _jpy_isHung(khach_tham_an, tc_khach);
+  const khach_tham_cat = _jpy_isCat(khach_tham_an, tc_khach);
+  const isTamTai = tc_chu.toUpperCase().includes("TAM_TAI") || tc_khach.toUpperCase().includes("TAM_TAI")
+                || tc_chu.toUpperCase().includes("TAM TÀI")  || tc_khach.toUpperCase().includes("TAM TÀI");
 
-  // #5 ÂM ĐỘN + TAM_TAI — Win 58.7%, Sharpe +2.81, n=196, p=0.0141
-  if(don_he==="am" && tinhChatChu==="TAM_TAI")
-    return { signal:"🟢 VÀO LỆNH LONG USD/JPY", type:"long", score:2.2,
-      reason:"ÂM ĐỘN + TAM_TAI (p=0.0141). Win 58.7% | Sharpe +2.81 | n=196. Biến động, thiên về tăng!" };
+  // ── TẦNG 1: ALPHA EDGE — BÓP CÒ ALL-IN LONG ──────────────────────
+  // Sharpe > 3.3 | p < 0.005
+  if(donHe==="am" && chu_dai_cat && khach_hung)
+    return { signal:"🟢 ALL-IN LONG USD/JPY", type:"long", score:1.0,
+      reason:"ÂM ĐỘN + Chủ (USD) CÁT + Khách (JPY) HUNG (Sharpe +4.06, p=0.0018). USD sức mạnh tuyệt đối, JPY gãy nát!" };
 
-  // #7 DƯƠNG ĐỘN + BÌNH THƯỜNG — Win 56.6%, Sharpe +2.83, n=173, p=0.0201
-  if(don_he==="duong" && tinhChatChu==="BINH_THUONG")
-    return { signal:"🟢 CÂN NHẮC LONG USD/JPY", type:"long", score:1.8,
-      reason:"DƯƠNG ĐỘN + BÌNH THƯỜNG (p=0.0201). Win 56.6% | Sharpe +2.83 | n=173. Môi trường ổn định, bias tăng nhẹ." };
+  if(donHe==="am" && chu_dai_cat)
+    return { signal:"🟢 ALL-IN LONG USD/JPY", type:"long", score:1.0,
+      reason:"ÂM ĐỘN + Chủ Đại Tướng (USD) CÁT (Sharpe +4.00, p=0.0009). Lực đẩy USD cực mạnh trong mùa Âm Độn!" };
 
-  // #6 DƯƠNG ĐỘN + CA_HAI_HUNG (cả 2 phía đều HUNG) — Win 55.9%, Sharpe +1.58, n=574, p=0.0173
-  if(don_he==="duong" && chu_dai_an.some(a=>HUNG_ANS.includes(a)) && khach_dai_an.some(a=>HUNG_ANS.includes(a)))
-    return { signal:"🟢 CÂN NHẮC LONG USD/JPY", type:"long", score:1.6,
-      reason:"DƯƠNG ĐỘN + CA_HAI_HUNG (p=0.0173). Win 55.9% | Sharpe +1.58 | n=574. Cả 2 phe bị cản, USD nhỉnh hơn." };
+  if(khach_tham_cat)
+    return { signal:"🟢 ALL-IN LONG USD/JPY", type:"long", score:1.0,
+      reason:"Khách Tham Tướng CÁT (Sharpe +3.38, p=0.0052). Lực hồi tàn dư ép JPY mất giá kịch liệt!" };
 
-  // #4 DƯƠNG ĐỘN + Chủ Đại HUNG — Win 55.8%, Sharpe +1.40, n=779, p=0.0141
-  if(don_he==="duong" && chu_dai_an.some(a=>HUNG_ANS.includes(a)))
-    return { signal:"🟢 CÂN NHẮC LONG USD/JPY", type:"long", score:1.5,
-      reason:"DƯƠNG ĐỘN + Chủ Đại HUNG (p=0.0141). Win 55.8% | Sharpe +1.40 | n=779. Chủ bị cản nhưng phe Yên yếu hơn!" };
+  // ── TẦNG 2: BETA EDGE — LONG TIÊU CHUẨN ────────────────────────
+  // Sharpe > 2.8 | p < 0.02
+  if(donHe==="am" && isTamTai)
+    return { signal:"🟢 LONG USD/JPY (CƠ BẢN)", type:"long", score:0.7,
+      reason:"ÂM ĐỘN + Tam Tài đủ (Sharpe +2.81). Thiên thời địa lợi ủng hộ vị thế USD." };
 
-  // #8 Khách Án TÙ — Win 59.2%, Sharpe +1.61, n=400, p=0.0431
+  if(donHe==="duong" && !chu_dai_hung && !khach_hung)
+    return { signal:"🟢 LONG USD/JPY (CƠ BẢN)", type:"long", score:0.7,
+      reason:"DƯƠNG ĐỘN + Sa bàn bình thường (Sharpe +2.83). Lãi suất USD áp đảo trong vùng thanh khoản bình yên." };
+
+  // ── TẦNG 3: GAMMA EDGE — LONG LƯỚT SÓNG ────────────────────────
+  // Sharpe 1.0 → 1.6 | p < 0.05
   if(khach_dai_an.includes("TÙ") || khach_tham_an.includes("TÙ"))
-    return { signal:"🟢 CÂN NHẮC LONG USD/JPY", type:"long", score:1.4,
-      reason:"Khách (JPY) dính án TÙ (p=0.0431). Win 59.2% | Sharpe +1.61 | n=400. Yên bị trói, USD hưởng lợi!" };
+    return { signal:"🟡 LONG LƯỚT USD/JPY", type:"long", score:0.4,
+      reason:"Khách (JPY) dính án TÙ (Sharpe +1.61, p=0.0431). Dòng tiền Yên bế tắc, tỷ giá bị đẩy lên. Ăn ngắn rút gọn!" };
 
-  // #9 DƯƠNG ĐỘN base — Win 54.8%, Sharpe +1.00, n=1013, p=0.0447
-  if(don_he==="duong")
-    return { signal:"⚪ BIAS LONG USD/JPY (YẾU)", type:"long", score:0.8,
-      reason:"DƯƠNG ĐỘN (p=0.0447). Win 54.8% | Sharpe +1.00 | n=1013. Bias tăng nhẹ — cần thêm xác nhận kỹ thuật!" };
+  if(donHe==="duong")
+    return { signal:"🟡 LONG LƯỚT USD/JPY", type:"long", score:0.4,
+      reason:"Mùa DƯƠNG ĐỘN (Sharpe ~1.40, p=0.0447). Hiệu suất yếu hơn mùa Âm — ưu tiên scalp ngắn." };
 
+  // ── MẶC ĐỊNH: KHÔNG CÓ LỢI THẾ ─────────────────────────────────
   return { signal:"⬜ ĐỨNG NGOÀI (NO TRADE)", type:"none", score:0,
-    reason:"Chưa tìm thấy tín hiệu significant (p<0.05) nào cho USD/JPY hôm nay." };
+    reason:"Sa bàn USD/JPY giằng co, không có lợi thế định lượng rõ ràng." };
 }
 
 function checkVolTrend(data){
@@ -899,13 +919,23 @@ function renderCard(dateStr, asset, idx){
   }
 
   if(showJPY){
-    const scoreColor = jpySig.score>=2?"var(--green)":jpySig.score>=1?"#90c878":"var(--gray)";
+    // Score scale mới: 1.0 = Alpha, 0.7 = Beta, 0.4 = Gamma, 0 = No trade
+    const tierLabel = jpySig.score>=1.0 ? "ALPHA ★★★"
+                    : jpySig.score>=0.7 ? "BETA ★★"
+                    : jpySig.score>=0.4 ? "GAMMA ★"
+                    : "—";
+    const scoreColor = jpySig.score>=1.0 ? "var(--green)"
+                     : jpySig.score>=0.7 ? "#90e878"
+                     : jpySig.score>=0.4 ? "#c8c050"
+                     : "var(--gray)";
     jpyHtml=`
     <div class="asset-block">
-      <div class="asset-label">💴 USD / JPY</div>
+      <div class="asset-label">💴 USD / JPY &nbsp;·&nbsp; USD=CHỦ / JPY=KHÁCH</div>
       <div class="signal-badge signal-${jpySig.type}">${jpySig.signal}</div>
       <div class="signal-reason">${jpySig.reason}</div>
-      <div style="margin-top:.4rem;font-family:'Share Tech Mono',monospace;font-size:.62rem;color:${scoreColor}">★ Score: ${jpySig.score>0?'+'+jpySig.score:jpySig.score}</div>
+      <div style="margin-top:.5rem;font-family:'Share Tech Mono',monospace;font-size:.63rem;color:${scoreColor};letter-spacing:.08em;">
+        TẦNG: <b>${tierLabel}</b> &nbsp;|&nbsp; Confidence: <b>${jpySig.score>0?(jpySig.score*100).toFixed(0)+'%':'—'}</b>
+      </div>
     </div>`;
   }
 
